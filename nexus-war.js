@@ -134,7 +134,15 @@
     mag_fast:{name:'Fast magazine',effect:'Faster reload',reload:.68,cost:450},
     smg_duals:{name:'Dual SMG kit',effect:'Dual-wield SMGs · faster fire, wider spread',
       types:['Submachine gun'],dualWield:true,rate:.86,spread:1.18,recoil:1.12,cost:750},
-    trigger_light:{name:'Lightened trigger',effect:'Faster firing · increased recoil',rate:.82,recoil:1.12,cost:650}
+    trigger_light:{name:'Lightened trigger',effect:'Faster firing · increased recoil',rate:.82,recoil:1.12,cost:650},
+    burst_triple:{name:'Three-round burst kit',effect:'Fires three rounds per trigger',
+      types:['Assault rifle','Marksman rifle'],burstRounds:3,cost:900},
+    underbarrel_frag:{name:'Mini grenade launcher',effect:'Tab launches a timed explosive',
+      types:['Assault rifle','Submachine gun','Light machine gun','Marksman rifle'],
+      utility:'underbarrelFrag',utilityCooldown:6500,cost:950},
+    underbarrel_smoke:{name:'Underbarrel smoke launcher',effect:'Tab deploys line-blocking smoke',
+      types:['Assault rifle','Submachine gun','Light machine gun','Marksman rifle'],
+      utility:'underbarrelSmoke',utilityCooldown:9000,cost:800}
   };
   const weaponColorParts=['receiver','barrel','grip'];
   const weaponColorDefaults={receiver:'#647166',barrel:'#18211c',grip:'#29362d'};
@@ -230,6 +238,7 @@
   let lastShot = 0;
   let recoilKick=0;
   let lastRecoilAt=0;
+  let attachmentCooldownUntil=0;
   let reloading = false;
   let captureBusy = false;
   let captureTimer = 0;
@@ -252,6 +261,8 @@
   let droneControlled=true;
   let heldGiveUpTimer=0;
   let giveUpInterval=0;
+  let reviveChannelTimer=0;
+  let reviveChannel=null;
   let houseInside='';
   let localDronePosition=null;
   let localTransportId='';
@@ -439,6 +450,19 @@
 
   function safeUserKey(name) {
     return String(name || '').toLowerCase().replace(/[.#$\[\]/]/g,'_').slice(0,32);
+  }
+
+  function cachedDropzoneTeam(name,currentWeek) {
+    try {
+      const saved=JSON.parse(localStorage.getItem('nexusDropzoneTeam_'+safeUserKey(name))||'null');
+      return saved&&saved.week===currentWeek&&['vortex','krypton'].includes(saved.team)?saved.team:'';
+    } catch(error) { return ''; }
+  }
+
+  function cacheDropzoneTeam(name,team,currentWeek=weekKey()) {
+    try {
+      localStorage.setItem('nexusDropzoneTeam_'+safeUserKey(name),JSON.stringify({team,week:currentWeek}));
+    } catch(error) {}
   }
 
   function requestUrl(path) {
@@ -633,8 +657,24 @@
   }
 
   async function getPlayerTeam(name) {
-    const user=accountFor(await readAccountWorld(),name);
     const currentWeek=weekKey();
+    const user=accountFor(await readAccountWorld(),name);
+    if (user.teamWeek===currentWeek&&['vortex','krypton'].includes(user.team)) {
+      cacheDropzoneTeam(name,user.team,currentWeek);
+      return user.team;
+    }
+    const cachedTeam=cachedDropzoneTeam(name,currentWeek);
+    if (cachedTeam) {
+      let restoredTeam='';
+      await updateAccountByName(name,current=>{
+        if (current.teamWeek!==currentWeek||!['vortex','krypton'].includes(current.team)) {
+          current.team=cachedTeam;
+          current.teamWeek=currentWeek;
+        }
+        restoredTeam=current.team;
+      });
+      if (['vortex','krypton'].includes(restoredTeam)) return restoredTeam;
+    }
     if (user.teamWeek!==currentWeek) {
       await updateAccountByName(name,current=>{
         if (current.teamWeek!==currentWeek) {
@@ -895,6 +935,8 @@
       spread:weapon.spread * mods.reduce((value,mod) => value * (mod.spread || 1),1),
       recoil:(weapon.recoil||.02)*mods.reduce((value,mod)=>value*(mod.recoil||1),1),
       dualWield:mods.some(mod=>mod.dualWield),
+      burstRounds:mods.reduce((count,mod)=>Math.max(count,Number(mod.burstRounds)||1),1),
+      utilityAttachment:mods.find(mod=>mod.utility)||null,
       mag:Math.round(weapon.mag * mods.reduce((value,mod) => value * (mod.mag || 1),1)),
       reload:Math.round(weapon.reload * mods.reduce((value,mod) => value * (mod.reload || 1),1))
     };
@@ -933,7 +975,6 @@
     container.addEventListener('pointerup',onControlPointerUp);
     container.addEventListener('pointercancel',onControlPointerUp);
     container.addEventListener('pointerleave',onControlPointerUp);
-    ui.form.addEventListener('submit',equipLoadout);
     ui.reload.addEventListener('click',reloadWeapon);
     document.addEventListener('click',onActionClick);
     document.addEventListener('fullscreenchange',updateFullscreenButton);
@@ -970,7 +1011,10 @@
         .catch(error=>setStatus(error.message,true))
         .finally(()=>{respawnBusy=false;});
     }
-    if (player && player.downed && Date.now()-Number(player.downedAt||0)>=30000) giveUp();
+    if (player&&player.downed&&Date.now()-Number(player.downedAt||0)>=10_000) {
+      cancelReviveChannel();
+      giveUp();
+    }
     if (player && !localPosition) {
       localPosition={x:Number(player.x),y:Number(player.y)};
       houseInside=String(player.houseInside||'');
@@ -981,7 +1025,7 @@
       const transport=player.transportId&&warState.vehicles&&warState.vehicles[player.transportId];
       const pilot=transport&&transport.pilot===playerKey;
       const vehicle=vehicles[player.vehicle];
-      const topSpeed=(vehicle?1700*vehicle.speed:2700)*(Number(player.speedBoostUntil||0)>Date.now()?1.8:1);
+      const topSpeed=(vehicle?1700*vehicle.speed:3240)*(Number(player.speedBoostUntil||0)>Date.now()?1.8:1);
       const canDrive=!player.transportId||pilot;
       const dx=canDrive?((keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0)):0;
       const dy=canDrive?((keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0)):0;
@@ -1954,7 +1998,7 @@
     if (holdButton&&container.contains(holdButton)&&warState.players[playerKey]?.downed) {
       event.preventDefault();
       holdButton.setPointerCapture(event.pointerId);
-      if (!giveUpInterval) giveUpInterval=window.setTimeout(()=>{giveUp();giveUpInterval=0;},1500);
+      if (!giveUpInterval) giveUpInterval=window.setTimeout(()=>{giveUp();giveUpInterval=0;},2000);
       return;
     }
     const control=event.target.closest('[data-war-move],[data-war-fire]');
@@ -2001,6 +2045,13 @@
     ui.weaponSwitch.disabled=!!vehicleWeapon;
     ui.weaponSwitch.textContent=vehicleWeapon?vehicleWeapon.name+' active':
       player.activeWeaponSlot==='secondary'?'Secondary (2) · switch to Primary (1)':'Primary (1) · switch to Secondary (2)';
+    if (ui.attachmentAction) {
+      const slot=player.activeWeaponSlot==='secondary'&&weapons[player.secondary]?.slot==='secondary'
+        ?'secondary':'primary';
+      const ability=vehicleWeapon?null:effectiveWeapon(player,slot).utilityAttachment;
+      ui.attachmentAction.hidden=!ability;
+      ui.attachmentAction.textContent=ability?ability.name+' (Tab)':'Underbarrel (Tab)';
+    }
   }
 
   async function toggleDroneControl() {
@@ -2021,8 +2072,18 @@
       else togglePause();
       return;
     }
+    if (key==='tab'&&!paused&&!(target&&target.closest('input,textarea,[contenteditable="true"]'))) {
+      event.preventDefault();
+      useWeaponAttachment();
+      return;
+    }
     if (target&&target.closest('input,textarea,[contenteditable="true"]')) return;
     if (target instanceof HTMLSelectElement&&key!=='v') return;
+    if (key==='p') {
+      event.preventDefault();
+      togglePause();
+      return;
+    }
     if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright','r','e','v','q','f','g','x','c','z','1','2','shift'].includes(key)) event.preventDefault();
     if (event.repeat&&!['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright'].includes(key)) return;
     if (/^[a-z]$/.test(key)) {
@@ -2036,7 +2097,7 @@
     if (paused) return;
     if (key==='shift') { toggleDroneControl();return; }
     if (key==='g'&&warState&&warState.players[playerKey]?.downed&&!giveUpInterval) {
-      giveUpInterval=window.setTimeout(()=>{giveUp();giveUpInterval=0;},1500);
+      giveUpInterval=window.setTimeout(()=>{giveUp();giveUpInterval=0;},2000);
     }
     keys.add(key);
     if (key==='1'||key==='2') {
@@ -2056,7 +2117,13 @@
       if (!currentTransport) enterOrExitHouse();
       else if (!isTransportPilot) keys.delete(key);
     }
-    if (key === 'f') reviveNearby();
+    if (key === 'f') {
+      const player=warState&&warState.players[playerKey];
+      if (player?.downed) {
+        if (Number(player.selfRevives||0)>0) useSelfRevive();
+        else setStatus('No self-revive charge. Hold G for 2 seconds to give up, or wait for auto give-up.',true);
+      } else reviveNearby();
+    }
     if (key === 'x') useTactical();
     if (key === 'c') useLethal();
     if (key === 'z') applyArmorPlate();
@@ -2094,7 +2161,8 @@
     const weapon=vehicleWeapon||effectiveWeapon(shooter,weaponSlot);
     const ammoField=vehicleWeapon?'vehicleAmmo':weaponSlot==='secondary'?'secondaryAmmo':'ammo';
     const weaponField=weaponSlot==='secondary'?'secondary':'weapon';
-    const ammoCost=weapon.dualWield?2:1;
+    const burstCount=Math.max(1,Math.floor(Number(weapon.burstRounds)||1));
+    const ammoCost=(weapon.dualWield?2:1)*burstCount;
     if (now - lastShot < weapon.rate) return;
     if (Number(shooter[ammoField]||0) < ammoCost) { setStatus('Magazine empty. Press R to reload.'); return; }
     lastShot = now;
@@ -2118,14 +2186,20 @@
     lastRecoilAt=now;
     const origin = {...shooter,x:Number(shooterPosition.x),y:Number(shooterPosition.y)};
     const flashAngle=Math.atan2(aim.y-origin.y,aim.x-origin.x)-recoilKick;
-    muzzleFlashes.push({x:origin.x+Math.cos(flashAngle)*48,y:origin.y+Math.sin(flashAngle)*48,
-      angle:flashAngle,time:Date.now()});
-    if (muzzleFlashes.length>24) muzzleFlashes.shift();
+    for (let flash=0;flash<burstCount;flash++) {
+      muzzleFlashes.push({x:origin.x+Math.cos(flashAngle)*48,y:origin.y+Math.sin(flashAngle)*48,
+        angle:flashAngle,time:Date.now()+flash*18});
+      if (muzzleFlashes.length>24) muzzleFlashes.shift();
+    }
     const pelletCount=Math.max(1,Math.floor(Number(weapon.pellets)||1));
-    const pelletDamage=Math.max(1,Math.round(weapon.damage/pelletCount));
+    const projectileCount=pelletCount*burstCount;
+    const projectileDamage=burstCount>1?weapon.damage:Math.max(1,Math.round(weapon.damage/pelletCount));
     try {
-      for (let pellet=0;pellet<pelletCount;pellet++) {
-        const angle=Math.atan2(aim.y-origin.y,aim.x-origin.x)+(Math.random()-.5)*weapon.spread-recoilKick;
+      for (let pellet=0;pellet<projectileCount;pellet++) {
+        if (pellet>0&&burstCount>1) playSound('shot');
+        const burstStep=pellet%burstCount;
+        const burstSpread=burstCount>1?(burstStep-(burstCount-1)/2)*weapon.spread*.22:0;
+        const angle=Math.atan2(aim.y-origin.y,aim.x-origin.x)+(Math.random()-.5)*weapon.spread-recoilKick+burstSpread;
         const end={
           x:Math.max(0,Math.min(worldWidth,origin.x+Math.cos(angle)*weapon.range)),
           y:Math.max(0,Math.min(worldHeight,origin.y+Math.sin(angle)*weapon.range))
@@ -2160,13 +2234,13 @@
             }
           }
         } else if (impact&&impact.target) {
-          await hitPlayer(impact.target,pelletDamage,shooter);
+          await hitPlayer(impact.target,projectileDamage,shooter);
         } else if (impact&&impact.turret) {
-          await hitTurret(impact.turretId,pelletDamage);
+          await hitTurret(impact.turretId,projectileDamage);
         } else if (impact&&impact.transport) {
           await hitTransport(impact.transportId,weapon.aircraftDamage||125);
         } else if (baseHit) {
-          await raidBase(baseHit.team,pelletDamage,shooter.team);
+          await raidBase(baseHit.team,projectileDamage,shooter.team);
         }
       }
     } catch(error) {
@@ -2285,7 +2359,7 @@
       try { await grantXpByName(attacker.name,100,'enemy eliminated'); }
       catch(error) { setStatus('Elimination counted, but XP could not be saved: '+error.message,true); }
     } else if (downed && targetKey===playerKey) {
-      setStatus('You are downed. A teammate can revive you; hold G to give up.');
+      setStatus('You are downed. F uses a self-revive if charged; hold G for 2 seconds to give up. Auto give-up in 10 seconds.');
     }
   }
 
@@ -2370,6 +2444,55 @@
         ...(remaining===0&&['turret','drone'].includes(item)?{[slot]:fallback}:{})};
     });
     if (!used) throw new Error('Equip this item and make sure you have a charge available.');
+  }
+
+  async function useWeaponAttachment() {
+    const player=warState&&warState.players[playerKey];
+    if (!player||player.downed||player.hp<=0||player.transportId||vehicles[player.vehicle]) {
+      setStatus('Underbarrel launchers can only be used on foot.',true);return;
+    }
+    const weaponSlot=player.activeWeaponSlot==='secondary'&&weapons[player.secondary]?.slot==='secondary'
+      ?'secondary':'primary';
+    const weapon=effectiveWeapon(player,weaponSlot);
+    const attachment=weapon.utilityAttachment;
+    if (!attachment) { setStatus('Equip a mini grenade or smoke launcher attachment first.',true);return; }
+    const now=Date.now();
+    if (now<attachmentCooldownUntil) {
+      setStatus('Underbarrel launcher ready in '+((attachmentCooldownUntil-now)/1000).toFixed(1)+'s.');return;
+    }
+    const position=localPosition||player;
+    if (isInOwnSafeZone(playerTeam,Number(position.x),Number(position.y))) {
+      setStatus('Underbarrel launchers are disabled inside your team safe zone.',true);return;
+    }
+    const maxDistance=attachment.utility==='underbarrelFrag'?620:500;
+    const angle=aimActive?Math.atan2(aim.y-position.y,aim.x-position.x):Number(player.facingAngle)||0;
+    const distance=aimActive?Math.min(maxDistance,Math.hypot(aim.x-position.x,aim.y-position.y)):maxDistance;
+    const destination={
+      x:Math.max(0,Math.min(worldWidth,position.x+Math.cos(angle)*distance)),
+      y:Math.max(0,Math.min(worldHeight,position.y+Math.sin(angle)*distance))
+    };
+    const impact=firstSolidObstruction(position.x,position.y,destination.x,destination.y)||destination;
+    try {
+      if (attachment.utility==='underbarrelFrag') {
+        playSound('throw');
+        const id='underbarrel_frag_'+playerKey+'_'+now;
+        const detonateAt=now+750;
+        await updateWar('grenades/'+id,()=>({team:playerTeam,owner:playerName,
+          x:impact.x,y:impact.y,startX:position.x,startY:position.y,
+          targetX:impact.x,targetY:impact.y,createdAt:now,detonateAt,expiresAt:detonateAt+1000,
+          radius:125,damage:68,splashDamage:42,directRadius:42}));
+        setStatus('Mini grenade launched. It detonates in 0.75 seconds.');
+      } else if (attachment.utility==='underbarrelSmoke') {
+        const id='underbarrel_smoke_'+playerKey+'_'+now;
+        await updateWar('smokes',current=>({...Object.fromEntries(Object.entries(current||{})
+          .filter(([,entry])=>entry&&Number(entry.expiresAt)>now)),[id]:{
+            team:playerTeam,x:impact.x,y:impact.y,radius:220,seed:Math.random()*Math.PI*2,
+            createdAt:now,expiresAt:now+10000
+          }}));
+        setStatus('Underbarrel smoke deployed. It blocks sight for 10 seconds.');
+      }
+      attachmentCooldownUntil=Date.now()+Number(attachment.utilityCooldown||7000);
+    } catch(error) { setStatus(error.message||'Could not use the underbarrel launcher.',true); }
   }
 
   async function useTactical() {
@@ -2498,18 +2621,23 @@
       const updated=await updateWar('grenades/'+id,current=>{
         detonated=null;
         if (!current||current.detonatedAt||Number(current.detonateAt)>now) return current;
-        detonated={...current,detonatedAt:now,expiresAt:now+650,radius:155};
+        detonated={...current,detonatedAt:now,expiresAt:now+650,radius:Number(current.radius)||155};
         return detonated;
       });
       if (updated&&warState) warState.grenades[id]=updated;
       if (!detonated) continue;
       playSound('explosion');
       const x=Number(detonated.targetX??detonated.x),y=Number(detonated.targetY??detonated.y);
+      const radius=Number(detonated.radius)||155;
+      const directRadius=Number(detonated.directRadius)||55;
+      const directDamage=Number(detonated.damage)||90;
+      const splashDamage=Number(detonated.splashDamage)||50;
       for (const enemy of Object.values(warState.players||{})) {
         if (!enemy||enemy.team===detonated.team||enemy.transportId||!enemy.online) continue;
         const distance=Math.hypot(Number(enemy.x)-x,Number(enemy.y)-y);
-        if (distance<155) await hitPlayer(enemy,distance<55?90:50,
-          {name:detonated.owner||'Grenade',team:detonated.team});
+        if (distance<radius&&!lineBlocked(x,y,Number(enemy.x),Number(enemy.y)))
+          await hitPlayer(enemy,distance<directRadius?directDamage:splashDamage,
+            {name:detonated.owner||'Grenade',team:detonated.team});
       }
       if (detonated.owner===playerName) setStatus('Frag grenade detonated.');
     }
@@ -2538,41 +2666,132 @@
     }
   }
 
+  function cancelReviveChannel(message='') {
+    if (reviveChannelTimer) clearInterval(reviveChannelTimer);
+    reviveChannelTimer=0;
+    const channel=reviveChannel;
+    reviveChannel=null;
+    if (channel&&message) setStatus(message,true);
+  }
+
+  function beginReviveChannel(targetKey,selfRevive) {
+    if (reviveChannel) { setStatus('A revive is already in progress.',true);return; }
+    const player=warState&&warState.players[playerKey];
+    const target=warState&&warState.players[targetKey];
+    if (!player||player.transportId||
+      (selfRevive?!player.downed:player.downed||player.hp<=0)) {
+      setStatus('You cannot revive while downed or in a vehicle.',true);return;
+    }
+    if (selfRevive&&(!player.downed||Number(player.selfRevives||0)<1)) {
+      setStatus('You need to be downed and have a self-revive charge.',true);return;
+    }
+    if (selfRevive&&Date.now()-Number(player.downedAt||0)>=10_000) {
+      setStatus('It is too late to start a self-revive.',true);return;
+    }
+    if (!selfRevive&&(!target||target.team!==playerTeam||!target.downed||
+        Date.now()-Number(target.downedAt||0)>=10_000)) {
+      setStatus('That teammate cannot be revived.',true);return;
+    }
+    const position=localPosition||player;
+    if (!selfRevive&&Math.hypot(Number(target.x)-Number(position.x),Number(target.y)-Number(position.y))>=145) {
+      setStatus('Move close to a downed teammate to revive them.',true);return;
+    }
+    const channel={targetKey,selfRevive,startedAt:Date.now(),startX:Number(position.x),startY:Number(position.y),
+      startHp:Number(player.hp),lastCountdown:5,finishing:false};
+    reviveChannel=channel;
+    setStatus((selfRevive?'Self-revive':'Reviving teammate')+' · 5 seconds. Stay still.');
+    reviveChannelTimer=window.setInterval(async()=>{
+      if (reviveChannel!==channel||channel.finishing) return;
+      const now=Date.now();
+      const rescuer=warState&&warState.players[playerKey];
+      const rescuerPosition=localPosition||rescuer;
+      const currentTarget=warState&&warState.players[channel.targetKey];
+      const moved=!rescuerPosition||Math.hypot(Number(rescuerPosition.x)-channel.startX,
+        Number(rescuerPosition.y)-channel.startY)>60;
+      const invalidRescuer=!rescuer||rescuer.transportId||moved||
+        (channel.selfRevive?!rescuer.downed:rescuer.hp<=0||rescuer.downed||Number(rescuer.hp)<channel.startHp);
+      const invalidTarget=channel.selfRevive
+        ?!rescuer?.downed||Number(rescuer?.selfRevives||0)<1||now-Number(rescuer?.downedAt||0)>=10_000
+        :!currentTarget||!currentTarget.downed||currentTarget.team!==playerTeam||
+          now-Number(currentTarget.downedAt||0)>=10_000||
+          !rescuerPosition||Math.hypot(Number(currentTarget.x)-Number(rescuerPosition.x),
+            Number(currentTarget.y)-Number(rescuerPosition.y))>=145;
+      if (invalidRescuer||invalidTarget) {
+        cancelReviveChannel('Revive interrupted.');
+        return;
+      }
+      const remaining=5000-(now-channel.startedAt);
+      if (remaining>0) {
+        const seconds=Math.ceil(remaining/1000);
+        if (seconds!==channel.lastCountdown) {
+          channel.lastCountdown=seconds;
+          setStatus((channel.selfRevive?'Self-revive':'Reviving teammate')+' · '+seconds+'s. Stay still.');
+        }
+        return;
+      }
+      channel.finishing=true;
+      clearInterval(reviveChannelTimer);
+      reviveChannelTimer=0;
+      reviveChannel=null;
+      try {
+        if (channel.selfRevive) {
+          let revived=false;
+          await mutatePlayer(current=>{
+            revived=!!current&&current.downed&&Number(current.selfRevives||0)>0&&
+              Date.now()-Number(current.downedAt||0)<10_000;
+            return revived?{...current,hp:50,downed:false,downedAt:0,respawnAt:0,
+              selfRevives:Number(current.selfRevives)-1,lastSeen:Date.now()}:current;
+          });
+          setStatus(revived?'Self-revive complete.':'Self-revive failed.',!revived);
+        } else {
+          let revived=false;
+          await updateWar('players/'+channel.targetKey,current=>{
+            revived=false;
+            const currentRescuer=warState&&warState.players[playerKey];
+            const currentPosition=localPosition||currentRescuer;
+            if (!current||!current.downed||current.team!==playerTeam||
+                Date.now()-Number(current.downedAt||0)>=10_000||!currentRescuer||
+                currentRescuer.downed||currentRescuer.hp<=0||!currentPosition||
+                Math.hypot(Number(current.x)-Number(currentPosition.x),
+                  Number(current.y)-Number(currentPosition.y))>=145) return current;
+            revived=true;
+            return {...current,hp:60,downed:false,downedAt:0,respawnAt:0,lastSeen:Date.now()};
+          });
+          setStatus(revived?'Teammate revived.':'Revive failed; your teammate is no longer downed.',!revived);
+        }
+      } catch(error) { setStatus(error.message||'The revive could not be completed.',true); }
+    },100);
+  }
+
   async function reviveNearby() {
     const player=warState&&warState.players[playerKey];
     if (!player||player.downed||player.hp<=0) return;
+    const position=localPosition||player;
     const ally=Object.entries(warState.players||{}).find(([,candidate])=>candidate&&candidate.team===playerTeam&&
-      candidate.downed&&Math.hypot(Number(candidate.x)-Number(localPosition?.x||player.x),
-        Number(candidate.y)-Number(localPosition?.y||player.y))<145);
+      candidate.downed&&Date.now()-Number(candidate.downedAt||0)<10_000&&
+      Math.hypot(Number(candidate.x)-Number(position.x),Number(candidate.y)-Number(position.y))<145);
     if (!ally) { setStatus('Move close to a downed teammate to revive them.',true);return; }
-    let revived=false;
-    await updateWar('players/'+ally[0],current=>{
-      if (!current||current.team!==playerTeam||!current.downed) return current;
-      revived=true;
-      return {...current,hp:60,downed:false,downedAt:0,respawnAt:0,lastSeen:Date.now()};
-    });
-    setStatus(revived?'Teammate revived.':'That teammate is no longer downed.',!revived);
+    beginReviveChannel(ally[0],false);
   }
 
   async function giveUp() {
     const player=warState&&warState.players[playerKey];
     if (!player||!player.downed||giveUpBusy) return;
+    cancelReviveChannel();
     giveUpBusy=true;
     try {
       await mutatePlayer(current=>current&&current.downed?{...current,hp:0,downed:false,
-        deaths:Number(current.deaths||0)+1,respawnAt:Date.now()+5000}:current);
+        downedAt:0,deaths:Number(current.deaths||0)+1,respawnAt:Date.now()+5000}:current);
       setStatus('You gave up. Respawning in five seconds.');
     } finally { giveUpBusy=false; }
   }
 
   async function useSelfRevive() {
-    let revived=false;
-    await mutatePlayer(current=>{
-      if (!current||!current.downed||Number(current.selfRevives||0)<1) return current;
-      revived=true;
-      return {...current,hp:50,downed:false,downedAt:0,respawnAt:0,selfRevives:current.selfRevives-1};
-    });
-    setStatus(revived?'Self-revive used.':'You need to be downed and have a self-revive available.',!revived);
+    const player=warState&&warState.players[playerKey];
+    if (!player||!player.downed||Number(player.selfRevives||0)<1) {
+      setStatus('You need to be downed and have a self-revive available.',true);return;
+    }
+    beginReviveChannel(playerKey,true);
   }
 
   async function applyArmorPlate() {
@@ -3339,8 +3558,20 @@
     }
   }
 
+  function setLoadoutStatus(message,error=false) {
+    if (ui?.loadoutStatus) {
+      ui.loadoutStatus.textContent=message;
+      ui.loadoutStatus.classList.toggle('error',error);
+    }
+    setStatus(message,error);
+  }
+
   async function equipLoadout(event) {
     event.preventDefault();
+    if (!warState||!accountData||!playerKey) {
+      setLoadoutStatus('Wait until Dropzone is connected before equipping a loadout.',true);
+      return;
+    }
     const weaponId=ui.weapon.value;
     const secondaryId=ui.secondaryWeapon.value;
     const chosen=[ui.attachment1.value,ui.attachment2.value].filter(Boolean);
@@ -3351,12 +3582,12 @@
       !accountData.dropzone.ownedAttachments.includes(id) ||
       (attachments[id].types&&!chosenWeapons.some(weapon=>weapon&&attachments[id].types.includes(weapon.type)))) ||
       new Set(chosen).size!==chosen.length) {
-      setStatus('Choose a primary, a pistol or explosive secondary, and attachments you own.',true);return;
+      setLoadoutStatus('Choose a primary, a pistol or explosive secondary, and attachments you own.',true);return;
     }
     const lockedWeapon=[weaponId,secondaryId].map(id=>weapons[id])
       .find(weapon=>weapon.level>accountData.dropzone.level);
     if (lockedWeapon) {
-      setStatus('Reach level '+lockedWeapon.level+' to unlock '+lockedWeapon.name+'.',true);return;
+      setLoadoutStatus('Reach level '+lockedWeapon.level+' to unlock '+lockedWeapon.name+'.',true);return;
     }
     try {
       const previous=warState.players[playerKey];
@@ -3382,8 +3613,8 @@
         secondaryAmmo:effectiveWeapon({...player,secondary:secondaryId,attachments:chosen},'secondary').mag}));
       refreshProgressUi();
       refreshEquipmentUi();
-      setStatus('Loadout equipped.');
-    } catch(error) { setStatus(error.message,true); }
+      setLoadoutStatus('Loadout equipped.');
+    } catch(error) { setLoadoutStatus(error.message||'Could not equip this loadout.',true); }
   }
 
   function refreshProgressUi() {
@@ -3498,6 +3729,9 @@
     if (button.dataset.warAction==='pause-game') togglePause(true);
     if (button.dataset.warAction==='resume-game') togglePause(false);
     if (button.dataset.warAction==='audio-toggle') toggleSound();
+    if (button.dataset.warAction==='secret-xp')
+      grantXp(10000,'secret bonus').catch(error=>setStatus(error.message||'Secret XP could not be saved.',true));
+    if (button.dataset.warAction==='use-attachment') useWeaponAttachment();
     if (button.dataset.warAction==='color-weapons') colorWeapons();
     if (button.dataset.warAction==='close-spawn-menu') closeVehicleSpawnMenu();
     if (button.dataset.warAction==='spawn-selected-vehicle') deployVehicle(ui.spawnVehicle.value);
@@ -3518,7 +3752,7 @@
     if (button.dataset.warAction==='use-lethal') useLethal();
     if (button.dataset.warAction==='drone-toggle') toggleDroneControl();
     if (button.dataset.warAction==='give-up'&&warState.players[playerKey]?.downed) {
-      setStatus('Hold the give-up button for 1.5 seconds to respawn.');
+      setStatus('Hold the give-up button for 2 seconds to give up.');
     }
   }
 
@@ -3605,6 +3839,7 @@
       vehicle:container.querySelector('[data-war-vehicle]'),
       reload:container.querySelector('[data-war-action="reload"]')
     };
+    ui.form.addEventListener('submit',equipLoadout);
     ui.mapWrap=container.querySelector('.nexus-war-map-wrap');
     ui.fullscreen=container.querySelector('[data-war-action="fullscreen"]');
     ui.mapWrap.appendChild(ui.fullscreen);
@@ -3629,7 +3864,8 @@
     ui.pauseMenu=document.createElement('div');
     ui.pauseMenu.className='nexus-war-pause';
     ui.pauseMenu.hidden=true;
-    ui.pauseMenu.innerHTML='<section class="nexus-war-pause-panel"><header><div><span>DROPZONE</span><h2>Paused</h2><p>The multiplayer frontline continues while you manage your loadout.</p></div><button class="nexus-button" type="button" data-war-action="resume-game">Resume</button></header><div class="nexus-war-pause-audio"><button class="nexus-button secondary" type="button" data-war-action="audio-toggle">Sound: on</button><label>Volume<input type="range" min="0" max="100" value="18" data-war-volume></label></div><div class="nexus-war-pause-content" data-war-pause-content></div></section>';
+    ui.pauseMenu.innerHTML='<section class="nexus-war-pause-panel"><header><div><span>DROPZONE</span><h2>Paused</h2><p>The multiplayer frontline continues while you manage your loadout.</p></div><button class="nexus-button" type="button" data-war-action="resume-game">Resume</button></header><div class="nexus-war-pause-audio"><button class="nexus-button secondary" type="button" data-war-action="audio-toggle">Sound: on</button><label>Volume<input type="range" min="0" max="100" value="18" data-war-volume></label></div><button class="nexus-button" type="button" data-war-action="secret-xp" hidden>theyseeyou · +10,000 XP</button><div class="nexus-war-pause-content" data-war-pause-content></div></section>';
+    ui.secretXp=ui.pauseMenu.querySelector('[data-war-action="secret-xp"]');
     ui.soundToggle=ui.pauseMenu.querySelector('[data-war-action="audio-toggle"]');
     ui.soundVolume=ui.pauseMenu.querySelector('[data-war-volume]');
     ui.soundVolume.value=String(Math.round(soundVolume*100));
@@ -3687,12 +3923,32 @@
     }
     colorControls.appendChild(colorButton);
     ui.form.insertBefore(colorControls,ui.form.querySelector('.nexus-war-equipment-help'));
+    ui.loadoutStatus=document.createElement('small');
+    ui.loadoutStatus.className='nexus-war-loadout-status';
+    ui.loadoutStatus.setAttribute('role','status');
+    ui.form.insertBefore(ui.loadoutStatus,ui.form.querySelector('.nexus-war-equipment-help'));
     ui.weaponSwitch=document.createElement('button');
     ui.weaponSwitch.type='button';
     ui.weaponSwitch.className='nexus-button secondary nexus-war-weapon-switch';
     ui.weaponSwitch.dataset.warAction='switch-weapon';
     ui.weaponSwitch.textContent='Primary (1)';
     container.querySelector('.nexus-war-controls').appendChild(ui.weaponSwitch);
+    ui.attachmentAction=document.createElement('button');
+    ui.attachmentAction.type='button';
+    ui.attachmentAction.className='nexus-button secondary';
+    ui.attachmentAction.dataset.warAction='use-attachment';
+    ui.attachmentAction.textContent='Underbarrel (Tab)';
+    ui.attachmentAction.hidden=true;
+    container.querySelector('.nexus-war-controls').appendChild(ui.attachmentAction);
+    const giveUpHint=document.createElement('span');
+    giveUpHint.innerHTML='<kbd>G</kbd> Hold 2s to give up · auto at 10s';
+    container.querySelector('.nexus-war-controls').appendChild(giveUpHint);
+    const reviveHint=[...container.querySelectorAll('.nexus-war-controls kbd')]
+      .find(key=>key.textContent==='F')?.parentElement;
+    if (reviveHint) reviveHint.innerHTML='<kbd>F</kbd> Self-revive / revive ally · 5s';
+    container.querySelector('[data-war-action="revive"]').textContent='Revive ally · 5s';
+    container.querySelector('[data-war-action="self-revive"]').textContent='Self-revive · 5s';
+    container.querySelector('[data-war-action="give-up"]').textContent='Hold 2s to give up';
     const droneHint=document.createElement('span');
     droneHint.innerHTML='<kbd>Shift</kbd> Toggle drone control';
     container.querySelector('.nexus-war-controls').prepend(droneHint);
@@ -3753,6 +4009,7 @@
       });
       if (selectionError) throw new Error(selectionError);
       if (!selected) throw new Error('Could not save your team choice. Try again.');
+      cacheDropzoneTeam(playerName,team,currentWeek);
       playerTeam=team;
       teamLookup=team;
       ui.teamChoice.hidden=true;
@@ -3799,6 +4056,7 @@
     reloadEndsAt=0;
     reloadStartedAt=0;
     giveUpInterval=0;
+    cancelReviveChannel();
     captureTimer=0;
     heartbeatTimer=0;
     refreshTimer=0;
