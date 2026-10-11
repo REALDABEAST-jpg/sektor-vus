@@ -299,9 +299,11 @@
 
   function normalize(value) {
     const base = defaults();
-    const records = (items, fallback, limit) => (Array.isArray(items) ? items : fallback)
-      .filter(item => item && typeof item === 'object' && !Array.isArray(item))
-      .slice(-limit);
+    const records = (items, fallback, limit) => {
+      const source=Array.isArray(items)?items:
+        items&&typeof items==='object'?Object.values(items):fallback;
+      return source.filter(item=>item&&typeof item==='object'&&!Array.isArray(item)).slice(-limit);
+    };
     return {
       users: records(value && value.users, base.users, 500),
       listings: records(value && value.listings, base.listings, 100),
@@ -617,10 +619,14 @@
   }
 
   async function requestWorld(method, value) {
+    return requestWorldAt(sharedPath,method,value);
+  }
+
+  async function requestWorldAt(path,method,value) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch('/api/data?path=' + encodeURIComponent(sharedPath), {
+      const response = await fetch('/api/data?path=' + encodeURIComponent(path), {
         method,
         signal:controller.signal,
         headers:value === undefined ? {} : {'Content-Type':'application/json'},
@@ -765,6 +771,7 @@
       setStatus(error.name === 'AbortError' ? 'Saving timed out. Try again.' : error.message || 'Could not save Nexus data.', true);
       console.error('[Nexus] Could not save the world.', error);
       render();
+      throw error;
     }
   }
 
@@ -959,6 +966,19 @@
       '<button class="nexus-button" ' + (auctionOptions ? '' : 'disabled') + '>Start auction</button></form></section>';
   }
 
+  function renderChatPane(scrollState) {
+    const chat=content.querySelector('.nexus-chat');
+    if (!chat||!world) return;
+    const previousScrollTop=scrollState?scrollState.scrollTop:chat.scrollTop;
+    const wasAtBottom=scrollState?scrollState.atBottom:
+      chat.scrollHeight-chat.scrollTop-chat.clientHeight<24;
+    chat.innerHTML=world.chat.slice(-30).map(renderChatMessage).join('')||
+      '<div class="nexus-empty">No messages yet.</div>';
+    const maxScroll=Math.max(0,chat.scrollHeight-chat.clientHeight);
+    chat.scrollTop=wasAtBottom?maxScroll:Math.min(previousScrollTop,maxScroll);
+    hydrateServerInvites();
+  }
+
   function render() {
     if (!world) return;
     const previousChat=content.querySelector('.nexus-chat');
@@ -1042,12 +1062,7 @@
             '<section class="nexus-card"><h2>Auction room</h2><div class="nexus-list">' + auctions + '</div></section>' +
             (user ? walletListing : '<section class="nexus-card nexus-shop-signin"><h2>Join the marketplace</h2><p class="nexus-wheel-help">Create an account or log in from Home to buy, bid, and list your items.</p><button class="nexus-button" type="button" data-nexus-tab="home">Go to account</button></section>')
         : walletAuth + wheel + '<section class="nexus-card"><h2>Live chat</h2><div class="nexus-chat">' + messages + '</div><form class="nexus-chat-form" data-form="chat"><textarea name="text" maxlength="' + (maxCodeLength + 7) + '" rows="2" placeholder="Message Nexus… Use /code: for a code or server invite" required></textarea><button class="nexus-button">Send</button></form><small class="nexus-chat-hint">Use <code>/code:YOURSERVERCODE</code> to share a server invite card, or <code>/code:</code> followed by source to post a copyable code block. Press Shift+Enter for a new line.</small></section>');
-    const chat = content.querySelector('.nexus-chat');
-    if (chat) {
-      const maxScroll=Math.max(0,chat.scrollHeight-chat.clientHeight);
-      chat.scrollTop=previousChatAtBottom?maxScroll:Math.min(previousChatScrollTop,maxScroll);
-      hydrateServerInvites();
-    }
+    renderChatPane({scrollTop:previousChatScrollTop,atBottom:previousChatAtBottom});
     updateAuctionCountdowns();
   }
 
@@ -1091,19 +1106,40 @@
       if (chatSendButton) chatSendButton.disabled=true;
     }
     const formData = new FormData(form);
+    const chatInput=isChatForm?form.querySelector('textarea[name="text"]'):null;
+    let chatTextToRestore='';
     let pendingChatMessageId='';
     try {
       if (form.dataset.form === 'auth') {
         const username = String(formData.get('username') || '').trim().replace(/[^a-zA-Z0-9_]/g, '').slice(0,20);
         const password = String(formData.get('password') || '');
-        const mode = event.submitter && event.submitter.value;
+        const mode = event.submitter&&event.submitter.value||'signup';
         if (username.length < 3 || password.length < 4) throw new Error('Use a 3+ character username and 4+ character password.');
         const user = world.users.find(entry => entry.username.toLowerCase() === username.toLowerCase());
         if (mode === 'signup') {
           if (user) throw new Error('That username is already taken.');
-          world.users.push({username,password,balance:500,lastWheelDate:null});
+          const newUser={username,password,balance:500,lastWheelDate:null};
+          if (firebaseMode) {
+            let duplicate=false;
+            const result=await cloudWorldRef.child('users').transaction(current=>{
+              const users=Array.isArray(current)?current:
+                current&&typeof current==='object'?Object.values(current):[];
+              duplicate=users.some(entry=>entry&&String(entry.username).toLowerCase()===username.toLowerCase());
+              return duplicate?undefined:[...users,newUser];
+            });
+            if (duplicate) throw new Error('That username is already taken.');
+            if (!result.committed) throw new Error('Nexus cancelled account creation. Check your connection and retry.');
+            const savedUsers=result.snapshot.val();
+            world.users=Array.isArray(savedUsers)?savedUsers:Object.values(savedUsers||{});
+            if (lastSavedWorld) lastSavedWorld.users=copyWorld(world.users);
+            setStatus('Welcome to Nexus. Your starter wallet is 500 Sektorium.');
+            render();
+          } else {
+            world.users.push(newUser);
+            await persist('Welcome to Nexus. Your starter wallet is 500 Sektorium.');
+          }
           localStorage.setItem(sessionKey, JSON.stringify({username}));
-          await persist('Welcome to Nexus. Your starter wallet is 500 Sektorium.');
+          render();
         } else {
           if (!user || user.password !== password) throw new Error('No matching account was found.');
           localStorage.setItem(sessionKey, JSON.stringify({username:user.username}));
@@ -1200,13 +1236,15 @@
         }
         if (code !== null && code.length > maxCodeLength) throw new Error('Code cards are limited to ' + maxCodeLength + ' characters.');
         if (!(code === null ? text.trim() : code.trim())) return;
+        chatTextToRestore=text;
         pendingChatMessageId='chat-'+Date.now()+'-'+Math.random().toString(16).slice(2);
         const message={id:pendingChatMessageId,
           user:user.username,text:code === null ? text.trim() : text};
         if (firebaseMode) pendingChatMessages.set(message.id,message);
-        world.chat.push(message);
+        world.chat=[...world.chat,message].slice(-100);
+        if (chatInput) chatInput.value='';
         setStatus(firebaseMode||lanMode?'Sending…':'Message sent.');
-        render();
+        renderChatPane();
         if (firebaseMode) {
           const result=await cloudWorldRef.child('chat').transaction(current=>{
             const messages=Array.isArray(current)?current:
@@ -1222,16 +1260,25 @@
           world.chat=mergeChatMessages(committedChat,[...pendingChatMessages.values()]);
           if (lastSavedWorld) lastSavedWorld.chat=copyWorld(committedChat);
           setStatus('Message sent.');
-          render();
+          renderChatPane();
+        } else if (lanMode) {
+          await requestWorldAt(sharedPath+'/chat','PUT',world.chat);
+          if (lastSavedWorld) lastSavedWorld.chat=copyWorld(world.chat);
+          setStatus('Message sent.');
+          renderChatPane();
         } else {
-          await persist('Message sent.');
+          localStorage.setItem(localDataKey,JSON.stringify(world));
+          lastSavedWorld=copyWorld(world);
+          setStatus('Message sent.');
+          renderChatPane();
         }
       }
     } catch (error) {
       if (isChatForm&&pendingChatMessageId&&world) {
         pendingChatMessages.delete(pendingChatMessageId);
         world.chat=world.chat.filter(message=>message&&message.id!==pendingChatMessageId);
-        render();
+        renderChatPane();
+        if (chatInput&&chatInput.isConnected&&!chatInput.value) chatInput.value=chatTextToRestore;
       }
       setStatus(error.message || 'That action could not be completed.', true);
     } finally {

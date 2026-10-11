@@ -128,11 +128,11 @@
     mag_fast:{name:'Fast magazine',effect:'Faster reload',reload:.68,cost:450}
   };
   const vehicles = {
-    scout_bike:{name:'Scout bike',speed:1.25,color:'#d8c76f'},
-    assault_rover:{name:'Assault rover',speed:1.35,color:'#b8836e'},
-    tank:{name:'Battle tank',speed:1,color:'#71836e'},
-    anti_air:{name:'Anti-air',speed:1.15,color:'#8da1a4'},
-    transport_helicopter:{name:'Transport helicopter',speed:.85,color:'#8da1a4'}
+    scout_bike:{name:'Scout bike',speed:1.9,color:'#d8c76f'},
+    assault_rover:{name:'Assault rover',speed:2.3,color:'#b8836e'},
+    tank:{name:'Battle tank',speed:1.55,color:'#71836e'},
+    anti_air:{name:'Anti-air',speed:1.75,color:'#8da1a4'},
+    transport_helicopter:{name:'Transport helicopter',speed:1.35,color:'#8da1a4'}
   };
   const vehicleWeapons={
     tank:{name:'Tank cannon',mag:8,damage:125,rate:1100,range:1250,spread:.012,reload:3200},
@@ -1581,8 +1581,11 @@
 
   function drawSmoke(context,smoke) {
     if (!smoke||Number(smoke.expiresAt)<=Date.now()) return;
-    const radius=Number(smoke.radius)||260;
-    const fade=Math.min(1,(Number(smoke.expiresAt)-Date.now())/2500);
+    const now=Date.now();
+    const age=Math.max(0,(now-Number(smoke.createdAt||now))/1000);
+    const baseRadius=Number(smoke.radius)||260;
+    const radius=baseRadius*(.62+.38*Math.min(1,age/.72));
+    const fade=Math.min(1,(Number(smoke.expiresAt)-now)/2500);
     const gradient=context.createRadialGradient(smoke.x,smoke.y,radius*.06,smoke.x,smoke.y,radius);
     gradient.addColorStop(0,'rgba(29,35,31,.98)');
     gradient.addColorStop(.52,'rgba(39,46,41,.96)');
@@ -1595,11 +1598,13 @@
     context.globalAlpha=.35*fade;
     context.fillStyle='#343c36';
     for (let puff=0;puff<5;puff++) {
-      const angle=puff*Math.PI*2/5+Number(smoke.seed||0);
-      const offset=radius*.38;
+      const phase=age*1.1+puff*1.9+Number(smoke.seed||0);
+      const angle=puff*Math.PI*2/5+Number(smoke.seed||0)+Math.sin(phase)*.12;
+      const offset=radius*(.34+Math.sin(phase*.8)*.055);
+      const drift=((age*9+puff*13)%(radius*.16));
       context.beginPath();
-      context.ellipse(smoke.x+Math.cos(angle)*offset,smoke.y+Math.sin(angle)*offset,
-        radius*.42,radius*.34,angle,0,Math.PI*2);
+      context.ellipse(smoke.x+Math.cos(angle)*offset,smoke.y+Math.sin(angle)*offset-drift,
+        radius*(.4+Math.sin(phase)*.025),radius*(.32+Math.cos(phase)*.02),angle,0,Math.PI*2);
       context.fill();
     }
     context.restore();
@@ -1924,7 +1929,12 @@
   function onKeyDown(event) {
     const key = event.key.toLowerCase();
     const target=event.target instanceof Element?event.target:null;
-    if (key==='escape') { event.preventDefault();togglePause();return; }
+    if (key==='escape') {
+      event.preventDefault();
+      if (ui?.spawnMenu&&!ui.spawnMenu.hidden) closeVehicleSpawnMenu();
+      else togglePause();
+      return;
+    }
     if (target&&target.closest('input,textarea,[contenteditable="true"]')) return;
     if (target instanceof HTMLSelectElement&&key!=='v') return;
     if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright','r','e','v','q','f','g','x','c','z','1','2','shift'].includes(key)) event.preventDefault();
@@ -2230,8 +2240,10 @@
         const id='smoke_'+playerKey+'_'+Date.now();
         const distance=Math.min(500,Math.hypot(aim.x-position.x,aim.y-position.y));
         const angle=Math.atan2(aim.y-position.y,aim.x-position.x);
+        const createdAt=Date.now();
         const smoke={team:playerTeam,x:position.x+Math.cos(angle)*distance,
-          y:position.y+Math.sin(angle)*distance,radius:260,seed:Math.random()*Math.PI*2,expiresAt:Date.now()+12000};
+          y:position.y+Math.sin(angle)*distance,radius:260,seed:Math.random()*Math.PI*2,
+          createdAt,expiresAt:createdAt+12000};
         await updateWar('smokes',current=>({...Object.fromEntries(Object.entries(current||{})
           .filter(([,entry])=>entry&&Number(entry.expiresAt)>Date.now())),[id]:smoke}));
         setStatus('Smoke deployed. It blocks sight for 12 seconds.');
@@ -2701,6 +2713,17 @@
     if (!player) return;
     if (player.transportId) { setStatus('Disembark before capturing or raiding.');return; }
     const position=player.name===playerName&&localPosition?localPosition:player;
+    if (!player.vehicle) {
+      const deployment=vehicleDeploymentArea(position);
+      if (deployment.insideBuilding) {
+        setStatus('Exit the building before opening the vehicle spawn menu.');
+        return;
+      }
+      if (deployment.atOwnBase||deployment.friendlyRelay) {
+        openVehicleSpawnMenu();
+        return;
+      }
+    }
     const nearestCrate=Object.values(warState.lootBoxes||{})
       .filter(crate=>crate&&crate.available)
       .map(crate=>({crate,distance:Math.hypot(Number(crate.x)-position.x,Number(crate.y)-position.y)}))
@@ -2724,6 +2747,44 @@
     setStatus('Press E beside a marked loot crate to open it, capture a relay, or return to base to deploy a vehicle.');
   }
 
+  function vehicleDeploymentArea(position) {
+    const atOwnBase=isInOwnSafeZone(playerTeam,Number(position.x),Number(position.y));
+    const insideBuilding=!!houseInside||obstacles.some(item=>(item.type==='building'||item.type==='house')&&
+      circleIntersectsRect(Number(position.x),Number(position.y),12,item));
+    const friendlyRelay=Object.entries(nodePositions).map(([id,node])=>({id,node,
+      distance:Math.hypot(node.x-position.x,node.y-position.y)}))
+      .filter(entry=>warState.nodes[entry.id]?.team===playerTeam&&entry.distance<=1280)
+      .sort((a,b)=>a.distance-b.distance)[0];
+    return {atOwnBase,insideBuilding,friendlyRelay};
+  }
+
+  function openVehicleSpawnMenu() {
+    if (!ui?.spawnMenu) return;
+    if (!ui.spawnMenu.hidden) { closeVehicleSpawnMenu();return; }
+    const player=warState&&warState.players[playerKey];
+    const position=localPosition||player;
+    if (!player||player.vehicle||player.transportId||!position) return;
+    const deployment=vehicleDeploymentArea(position);
+    if (deployment.insideBuilding) {
+      setStatus('Exit the building before opening the vehicle spawn menu.');
+      return;
+    }
+    if (!deployment.atOwnBase&&!deployment.friendlyRelay) {
+      setStatus('Vehicle spawning is available at your base or a friendly captured point.');
+      return;
+    }
+    ui.spawnVehicle.value=ui.vehicle.value;
+    ui.spawnHint.textContent=deployment.atOwnBase?'Base deployment pad':
+      'Friendly point: '+deployment.friendlyRelay.node.label;
+    ui.spawnMenu.hidden=false;
+    ui.spawnVehicle.focus();
+    playSound('pause');
+  }
+
+  function closeVehicleSpawnMenu() {
+    if (ui?.spawnMenu) ui.spawnMenu.hidden=true;
+  }
+
   async function parkGroundVehicle(player,position) {
     const id='parked_'+safeUserKey(playerName)+'_'+Date.now();
     const now=Date.now();
@@ -2744,7 +2805,7 @@
     setStatus('Dismounted. This vehicle will remain for 3 minutes, then explode.');
   }
 
-  async function deployVehicle() {
+  async function deployVehicle(selectedType='') {
     if (!warState||vehicleActionBusy) return;
     vehicleActionBusy=true;
     try {
@@ -2762,18 +2823,13 @@
       } catch(error) { setStatus(error.message,true); }
       return;
     }
-    const type=ui.vehicle.value;
-    const atOwnBase=isInOwnSafeZone(playerTeam,Number(position.x),Number(position.y));
-    const insideBuilding=!!houseInside||obstacles.some(item=>(item.type==='building'||item.type==='house')&&
-      circleIntersectsRect(Number(position.x),Number(position.y),12,item));
+    const type=selectedType||ui.vehicle.value;
+    ui.vehicle.value=type;
+    const {atOwnBase,insideBuilding,friendlyRelay}=vehicleDeploymentArea(position);
     if (insideBuilding) {
       setStatus('Exit the building before deploying a vehicle.');
       return;
     }
-    const friendlyRelay=Object.entries(nodePositions).map(([id,node])=>({id,node,
-      distance:Math.hypot(node.x-position.x,node.y-position.y)}))
-      .filter(entry=>warState.nodes[entry.id]?.team===playerTeam&&entry.distance<=1280)
-      .sort((a,b)=>a.distance-b.distance)[0];
     const nearbyTransport=Object.values(warState.vehicles||{}).some(transport=>transport&&
       transport.type===transportType&&transport.team===playerTeam&&transport.hp>0&&
       (!Number(transport.expiresAt)||Number(transport.expiresAt)>Date.now())&&
@@ -2811,6 +2867,7 @@
           localPosition={x:nearby[1].x,y:nearby[1].y};
           localTransportId=id;
           movementVelocity={x:0,y:0};
+          closeVehicleSpawnMenu();
           setStatus('Boarded transport as '+boardedRole+' ('+(nearby[1].passengers.length+1)+'/10). '+
             (boardedRole==='pilot'?'WASD fly; hold Q to descend or E to climb. ':'')+'Press V to leave.');
           return;
@@ -2832,6 +2889,7 @@
         localPosition={x:pad.x,y:pad.y};
         localTransportId=id;
         movementVelocity={x:0,y:0};
+        closeVehicleSpawnMenu();
         setStatus('Transport helicopter deployed. WASD fly; hold Q to descend or E to climb. Up to 10 occupants; press V to leave.');
         return;
       }
@@ -2841,8 +2899,10 @@
       if (occupied) throw new Error('The '+vehicles[type].name+' pad is occupied by a teammate.');
       await mutatePlayer(current=>current?{...current,x:spawnPosition.x,y:spawnPosition.y,vehicle:type,vehiclePad:padId,
         vehicleAmmo:vehicleWeapons[type]?.mag||0,lastSeen:Date.now()}:current);
+      closeVehicleSpawnMenu();
       localPosition={x:spawnPosition.x,y:spawnPosition.y};
       movementVelocity={x:0,y:0};
+      closeVehicleSpawnMenu();
       setStatus('Spawned '+vehicles[type].name+' '+(atOwnBase?'at its base pad. ':'at the friendly relay. ')+'Press V to dismount.');
     } catch(error) { setStatus(error.message,true); }
     } finally { vehicleActionBusy=false; }
@@ -3250,6 +3310,8 @@
     if (button.dataset.warAction==='pause-game') togglePause(true);
     if (button.dataset.warAction==='resume-game') togglePause(false);
     if (button.dataset.warAction==='audio-toggle') toggleSound();
+    if (button.dataset.warAction==='close-spawn-menu') closeVehicleSpawnMenu();
+    if (button.dataset.warAction==='spawn-selected-vehicle') deployVehicle(ui.spawnVehicle.value);
     if (button.dataset.warAction==='switch-weapon') switchWeaponSlot(
       warState.players[playerKey]?.activeWeaponSlot==='secondary'?'primary':'secondary');
     if (button.dataset.warAction==='fullscreen') toggleFullscreen();
@@ -3326,6 +3388,9 @@
       '<button class="nexus-button nexus-team-vortex" type="button" data-war-action="join-dropzone-team" data-team="vortex">Join Vortex</button>'+
       '<button class="nexus-button nexus-team-krypton" type="button" data-war-action="join-dropzone-team" data-team="krypton">Join Krypton</button>';
     container.querySelector('[data-war-status]').after(teamChoice);
+    const interactionHint=[...container.querySelectorAll('.nexus-war-controls kbd')]
+      .find(key=>key.textContent==='E')?.parentElement;
+    if (interactionHint) interactionHint.innerHTML='<kbd>E</kbd> Spawn vehicle / loot / capture';
     ui={
       canvas:container.querySelector('.nexus-war-canvas'),
       minimap:container.querySelector('[data-war-minimap]'),
@@ -3388,6 +3453,15 @@
       '.nexus-war-attachment-shop','.nexus-war-arsenal'];
     ui.pauseItems=pauseSelectors.map(selector=>container.querySelector(selector)).filter(Boolean)
       .map(element=>({element,placeholder:document.createComment('pause-panel-placeholder')}));
+    ui.spawnMenu=document.createElement('div');
+    ui.spawnMenu.className='nexus-war-spawn-menu';
+    ui.spawnMenu.hidden=true;
+    ui.spawnMenu.innerHTML='<section><header><div><span>DEPLOYMENT</span><h3>Spawn vehicle</h3></div><button class="nexus-button secondary" type="button" data-war-action="close-spawn-menu" aria-label="Close vehicle menu">×</button></header><p data-war-spawn-hint></p><label>Vehicle<select data-war-spawn-vehicle><option value="scout_bike">Scout bike</option><option value="assault_rover">Assault rover</option><option value="tank">Battle tank</option><option value="anti_air">Anti-air</option><option value="transport_helicopter">Transport helicopter</option></select></label><div class="nexus-war-spawn-actions"><button class="nexus-button" type="button" data-war-action="spawn-selected-vehicle">Deploy selected</button></div></section>';
+    ui.spawnVehicle=ui.spawnMenu.querySelector('[data-war-spawn-vehicle]');
+    ui.spawnHint=ui.spawnMenu.querySelector('[data-war-spawn-hint]');
+    ui.spawnVehicle.value=ui.vehicle.value;
+    ui.spawnVehicle.addEventListener('change',()=>{ui.vehicle.value=ui.spawnVehicle.value;});
+    ui.mapWrap.appendChild(ui.spawnMenu);
     ui.weapon.innerHTML=Object.entries(weapons).filter(([,weapon])=>weapon.slot!=='secondary')
       .map(([id,weapon])=>'<option value="'+id+'">'+weapon.type+' · '+weapon.name+'</option>').join('');
     ui.attachment1.innerHTML='<option value="">No attachment</option>';
