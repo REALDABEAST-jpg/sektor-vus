@@ -21,6 +21,7 @@
   let cloudWorldHandler = null;
   let connecting = false;
   let activeTab = 'home';
+  let spectatorExpanded = true;
   let renderPending = false;
   let wheelRotation = 0;
   let wheelSpinning = false;
@@ -30,6 +31,8 @@
   let paintStartPoint = null;
   let paintSnapshot = null;
   let settlingAuctions = false;
+  let chatSending = false;
+  const pendingChatMessages=new Map();
 
   const defaults = () => ({
     users: [],
@@ -44,6 +47,34 @@
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
   }[char]));
   const copyWorld = value => JSON.parse(JSON.stringify(value));
+
+  function mergeChatMessages(saved,pending) {
+    const merged=[],seen=new Set();
+    for (const message of [...saved,...pending]) {
+      const id=message&&message.id;
+      if (id&&seen.has(id)) continue;
+      if (id) seen.add(id);
+      merged.push(message);
+    }
+    return merged.slice(-100);
+  }
+
+  function worldWithPendingChat(value) {
+    const next=normalize(value);
+    if (pendingChatMessages.size) {
+      next.chat=mergeChatMessages(next.chat,[...pendingChatMessages.values()]);
+    }
+    return next;
+  }
+
+  function currentTeamWeek(date=new Date()) {
+    const target=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()));
+    const weekday=target.getUTCDay()||7;
+    target.setUTCDate(target.getUTCDate()+4-weekday);
+    const yearStart=new Date(Date.UTC(target.getUTCFullYear(),0,1));
+    const week=Math.ceil(((target-yearStart)/86400000+1)/7);
+    return target.getUTCFullYear()+'-W'+String(week).padStart(2,'0');
+  }
 
   function codeFromMessage(value) {
     const text = String(value ?? '').trim();
@@ -317,6 +348,12 @@
 
   function inventoryFor(user) {
     if (!Array.isArray(user.inventory)) user.inventory = [];
+    user.inventory=user.inventory.filter(item=>item&&typeof item==='object'&&!Array.isArray(item));
+    for (const item of user.inventory) {
+      if (!item.id) item.id='inventory-'+Date.now()+'-'+Math.random().toString(16).slice(2);
+      const quantity=Number(item.quantity);
+      item.quantity=Number.isInteger(quantity)&&quantity>=0?quantity:1;
+    }
     return user.inventory;
   }
 
@@ -354,9 +391,10 @@
     const holdingUser = user ? stockHoldingsFor(user) : null;
     const holdingValue = holdingUser ? holdingUser.stockShares * market.price : 0;
     const unrealizedProfit = holdingUser ? holdingValue - holdingUser.stockCostBasis : 0;
-    const assignedTeam = user && (user.team === 'vortex' || user.team === 'krypton');
+    const assignedTeam = user && user.teamWeek===currentTeamWeek()&&
+      (user.team === 'vortex' || user.team === 'krypton');
     const teamPicker = user && !assignedTeam
-      ? '<div class="nexus-stock-team-picker"><strong>Choose your team once</strong><p>Team membership cannot be changed after you choose.</p>' +
+      ? '<div class="nexus-stock-team-picker"><strong>Choose your team for this week</strong><p>Your team choice resets each week.</p>' +
         '<button class="nexus-button nexus-team-vortex" type="button" data-action="join-team" data-team="vortex">Join Vortex</button>' +
         '<button class="nexus-button nexus-team-krypton" type="button" data-action="join-team" data-team="krypton">Join Krypton</button></div>'
       : user
@@ -391,13 +429,14 @@
   }
 
   function renderShopTeamJoin(user) {
-    const assignedTeam=user&&(user.team==='vortex'||user.team==='krypton');
+    const assignedTeam=user&&user.teamWeek===currentTeamWeek()&&
+      (user.team==='vortex'||user.team==='krypton');
     const teamContent=!user
       ?'<p class="nexus-wheel-help">Sign in from Home to join Vortex or Krypton.</p>'
       :assignedTeam
         ?'<p class="nexus-stock-team-label">Your team: <strong class="nexus-team-'+user.team+'">'+
           (user.team==='vortex'?'Vortex':'Krypton')+'</strong></p>'
-        :'<p class="nexus-wheel-help">Choose a team to join the frontline. This choice is permanent.</p>'+
+        :'<p class="nexus-wheel-help">Choose a team to join the frontline this week.</p>'+
           '<div class="nexus-stock-trade-controls"><button class="nexus-button nexus-team-vortex" type="button" data-action="join-team" data-team="vortex">Join Vortex</button>'+
           '<button class="nexus-button nexus-team-krypton" type="button" data-action="join-team" data-team="krypton">Join Krypton</button></div>';
     return '<section class="nexus-card nexus-shop-team"><span class="nexus-shop-eyebrow">FRONTLINE ACCESS</span><h2>Join a team</h2>'+
@@ -661,8 +700,9 @@
       try {
         const value = JSON.parse(event.data);
         if (value && typeof value === 'object') {
-          world = normalize(value);
-          lastSavedWorld = copyWorld(world);
+          const saved=normalize(value);
+          lastSavedWorld=copyWorld(saved);
+          world=worldWithPendingChat(saved);
           renderLiveUpdate();
         }
       } catch (error) {
@@ -681,8 +721,9 @@
     cloudWorldHandler = snapshot => {
       const value = snapshot.val();
       if (value && typeof value === 'object') {
-        world = normalize(value);
-        lastSavedWorld = copyWorld(world);
+        const saved=normalize(value);
+        lastSavedWorld=copyWorld(saved);
+        world=worldWithPendingChat(saved);
         renderLiveUpdate();
       }
     };
@@ -920,6 +961,10 @@
 
   function render() {
     if (!world) return;
+    const previousChat=content.querySelector('.nexus-chat');
+    const previousChatScrollTop=previousChat?previousChat.scrollTop:0;
+    const previousChatAtBottom=!previousChat||
+      previousChat.scrollHeight-previousChat.scrollTop-previousChat.clientHeight<24;
     const user = currentUser();
     const auth = user
       ? '<section class="nexus-card"><h2>Your wallet</h2><div class="nexus-user"><div><strong>' + escapeHtml(user.username) +
@@ -991,7 +1036,7 @@
       '<a class="nexus-tab" href="' + escapeHtml(dropzoneUrl()) + '"><span>⚔</span> Dropzone</a>' +
       '</nav>' + (shopTab
           ? renderShopTeamJoin(user) +
-            '<section class="nexus-card nexus-spectator-panel" data-nexus-war-spectator><div class="nexus-spectator-heading"><div><span>LIVE FRONTLINE</span><h2>Spectator view</h2></div><label>Watch<select data-war-spectator-select aria-label="Choose a live player to watch"><option value="">Loading players…</option></select></label></div><p class="nexus-spectator-status" data-war-spectator-status role="status" aria-live="polite">Connecting to the frontline…</p><canvas class="nexus-war-canvas nexus-spectator-canvas" width="1200" height="640" aria-label="Read-only live view of the Dropzone battlefield"></canvas></section>' +
+            '<section class="nexus-card nexus-spectator-panel" data-nexus-war-spectator><details class="nexus-spectator-details" data-war-spectator-details'+(spectatorExpanded?' open':'')+'><summary class="nexus-spectator-summary"><div><span>LIVE FRONTLINE</span><h2>Spectator view</h2></div></summary><div class="nexus-spectator-content"><label>Watch<select data-war-spectator-select aria-label="Choose a live player to watch"><option value="">Loading players…</option></select></label><p class="nexus-spectator-status" data-war-spectator-status role="status" aria-live="polite">Connecting to the frontline…</p><canvas class="nexus-war-canvas nexus-spectator-canvas" width="1200" height="640" aria-label="Read-only live view of the Dropzone battlefield"></canvas></div></details></section>' +
             renderStockMarket(user) +
             '<section class="nexus-card"><h2>Marketplace</h2><div class="nexus-list">' + marketplaceListings + '</div></section>' +
             '<section class="nexus-card"><h2>Auction room</h2><div class="nexus-list">' + auctions + '</div></section>' +
@@ -999,7 +1044,8 @@
         : walletAuth + wheel + '<section class="nexus-card"><h2>Live chat</h2><div class="nexus-chat">' + messages + '</div><form class="nexus-chat-form" data-form="chat"><textarea name="text" maxlength="' + (maxCodeLength + 7) + '" rows="2" placeholder="Message Nexus… Use /code: for a code or server invite" required></textarea><button class="nexus-button">Send</button></form><small class="nexus-chat-hint">Use <code>/code:YOURSERVERCODE</code> to share a server invite card, or <code>/code:</code> followed by source to post a copyable code block. Press Shift+Enter for a new line.</small></section>');
     const chat = content.querySelector('.nexus-chat');
     if (chat) {
-      chat.scrollTop = chat.scrollHeight;
+      const maxScroll=Math.max(0,chat.scrollHeight-chat.clientHeight);
+      chat.scrollTop=previousChatAtBottom?maxScroll:Math.min(previousChatScrollTop,maxScroll);
       hydrateServerInvites();
     }
     updateAuctionCountdowns();
@@ -1024,11 +1070,28 @@
     },0);
   });
 
+  content.addEventListener('toggle',event=>{
+    if (event.target.matches('[data-war-spectator-details]')) spectatorExpanded=event.target.open;
+  },true);
+
   content.addEventListener('submit', async event => {
     const form = event.target.closest('form[data-form]');
-    if (!form || !world) return;
+    if (!form) return;
     event.preventDefault();
+    if (!world) {
+      setStatus('Connect to Nexus before sending.',true);
+      return;
+    }
+    const isChatForm=form.dataset.form==='chat';
+    const serializeChat=isChatForm&&lanMode;
+    if (serializeChat&&chatSending) return;
+    const chatSendButton=serializeChat?form.querySelector('button'):null;
+    if (serializeChat) {
+      chatSending=true;
+      if (chatSendButton) chatSendButton.disabled=true;
+    }
     const formData = new FormData(form);
+    let pendingChatMessageId='';
     try {
       if (form.dataset.form === 'auth') {
         const username = String(formData.get('username') || '').trim().replace(/[^a-zA-Z0-9_]/g, '').slice(0,20);
@@ -1137,11 +1200,45 @@
         }
         if (code !== null && code.length > maxCodeLength) throw new Error('Code cards are limited to ' + maxCodeLength + ' characters.');
         if (!(code === null ? text.trim() : code.trim())) return;
-        world.chat.push({user:user.username,text:code === null ? text.trim() : text});
-        await persist('Message sent.');
+        pendingChatMessageId='chat-'+Date.now()+'-'+Math.random().toString(16).slice(2);
+        const message={id:pendingChatMessageId,
+          user:user.username,text:code === null ? text.trim() : text};
+        if (firebaseMode) pendingChatMessages.set(message.id,message);
+        world.chat.push(message);
+        setStatus(firebaseMode||lanMode?'Sending…':'Message sent.');
+        render();
+        if (firebaseMode) {
+          const result=await cloudWorldRef.child('chat').transaction(current=>{
+            const messages=Array.isArray(current)?current:
+              current&&typeof current==='object'?Object.values(current):[];
+            return messages.some(entry=>entry&&entry.id===message.id)
+              ?messages.slice(-100):[...messages,message].slice(-100);
+          });
+          if (!result.committed) throw new Error('Nexus cancelled the chat update. Check your connection and retry.');
+          const savedChat=result.snapshot.val();
+          const committedChat=Array.isArray(savedChat)?savedChat:
+            savedChat&&typeof savedChat==='object'?Object.values(savedChat):[message];
+          pendingChatMessages.delete(message.id);
+          world.chat=mergeChatMessages(committedChat,[...pendingChatMessages.values()]);
+          if (lastSavedWorld) lastSavedWorld.chat=copyWorld(committedChat);
+          setStatus('Message sent.');
+          render();
+        } else {
+          await persist('Message sent.');
+        }
       }
     } catch (error) {
+      if (isChatForm&&pendingChatMessageId&&world) {
+        pendingChatMessages.delete(pendingChatMessageId);
+        world.chat=world.chat.filter(message=>message&&message.id!==pendingChatMessageId);
+        render();
+      }
       setStatus(error.message || 'That action could not be completed.', true);
+    } finally {
+      if (serializeChat) {
+        chatSending=false;
+        if (chatSendButton&&chatSendButton.isConnected) chatSendButton.disabled=false;
+      }
     }
   });
 
@@ -1238,13 +1335,16 @@
       } else if (action === 'join-team') {
         if (!user) throw new Error('Sign in before choosing a team.');
         const team = button.dataset.team;
-        if (user.team === 'vortex' || user.team === 'krypton') throw new Error('Your team is already set and cannot be changed.');
+        if (user.teamWeek===currentTeamWeek()&&(user.team === 'vortex' || user.team === 'krypton'))
+          throw new Error('Your team is already set for this week.');
         if (team !== 'vortex' && team !== 'krypton') throw new Error('Choose Vortex or Krypton.');
         user.team = team;
-        await persist('You joined ' + (team === 'vortex' ? 'Vortex' : 'Krypton') + '. Your team choice is permanent.');
+        user.teamWeek=currentTeamWeek();
+        await persist('You joined ' + (team === 'vortex' ? 'Vortex' : 'Krypton') + ' for this week.');
       } else if (action === 'stock-buy' || action === 'stock-sell') {
         if (!user) throw new Error('Sign in before trading stock.');
-        if (user.team !== 'vortex' && user.team !== 'krypton') throw new Error('Choose Vortex or Krypton before trading stock.');
+        if (user.teamWeek!==currentTeamWeek()||(user.team !== 'vortex' && user.team !== 'krypton'))
+          throw new Error('Choose Vortex or Krypton for this week before trading stock.');
         const stockPanel = button.closest('.nexus-stock-panel');
         const quantity = Number(stockPanel && stockPanel.querySelector('[data-stock-quantity]')?.value);
         if (!Number.isInteger(quantity) || quantity < 1 || quantity > 1000) throw new Error('Choose a whole number of shares from 1 to 1000.');

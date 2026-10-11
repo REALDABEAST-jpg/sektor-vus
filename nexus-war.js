@@ -30,6 +30,95 @@
     special_rpg:{name:'RPG-4',type:'Special',damage:115,rate:1300,mag:2,range:760,spread:.018,reload:2800,radius:95,level:40},
     special_xeno:{name:'Xenophage',type:'Special',damage:38,rate:370,mag:18,range:600,spread:.025,reload:1900,level:55}
   };
+  const weaponProfiles={
+    'Assault rifle':{damage:24,rate:175,mag:30,range:700,spread:.032,reload:1450,model:'rifle'},
+    'Submachine gun':{damage:14,rate:90,mag:36,range:460,spread:.07,reload:1350,model:'smg'},
+    'Light machine gun':{damage:19,rate:115,mag:65,range:750,spread:.06,reload:2600,model:'lmg'},
+    'Sniper rifle':{damage:86,rate:950,mag:5,range:1150,spread:.004,reload:2400,model:'sniper'},
+    'Shotgun':{damage:78,rate:780,mag:8,range:340,spread:.19,reload:2300,model:'shotgun'},
+    'Marksman rifle':{damage:48,rate:380,mag:14,range:900,spread:.012,reload:1800,model:'marksman'},
+    'Special':{damage:40,rate:400,mag:24,range:700,spread:.035,reload:1900,model:'special'},
+    'Explosive':{damage:105,rate:1250,mag:2,range:850,spread:.012,reload:3000,radius:135,model:'launcher'},
+    'Pistol':{damage:30,rate:260,mag:15,range:520,spread:.025,reload:1250,model:'pistol'}
+  };
+  const primaryUnlocks=[
+    {id:'shot_breach',name:'Breach-8',type:'Shotgun',level:2},
+    {id:'smg_mako',name:'Mako-9',type:'Submachine gun',level:3},
+    {id:'lmg_atlas',name:'Atlas 60',type:'Light machine gun',level:4},
+    {id:'dmr_cinder',name:'Cinder DMR',type:'Marksman rifle',level:6},
+    {id:'ar_vanguard',name:'Vanguard-5',type:'Assault rifle',level:7},
+    {id:'shot_rampart',name:'Rampart 12',type:'Shotgun',level:8},
+    {id:'lmg_bastion',name:'Bastion LMG',type:'Light machine gun',level:9},
+    {id:'sniper_sable',name:'Sable .50',type:'Sniper rifle',level:11},
+    {id:'ar_horizon',name:'Horizon 5.56',type:'Assault rifle',level:12},
+    {id:'smg_wisp',name:'Wisp-45',type:'Submachine gun',level:13},
+    {id:'dmr_kepler',name:'Kepler 7',type:'Marksman rifle',level:14},
+    {id:'shot_ironclad',name:'Ironclad Auto',type:'Shotgun',level:15},
+    {id:'lmg_longhaul',name:'Longhaul 80',type:'Light machine gun',level:16},
+    {id:'ar_sundown',name:'Sundown AR',type:'Assault rifle',level:17},
+    {id:'special_arc',name:'Arc Projector',type:'Special',level:19},
+    {id:'dmr_meridian',name:'Meridian Mk2',type:'Marksman rifle',level:20},
+    {id:'shot_thunder',name:'Thunder Tube',type:'Shotgun',level:21},
+    {id:'lmg_redwood',name:'Redwood 75',type:'Light machine gun',level:22},
+    {id:'smg_needle',name:'Needle-9',type:'Submachine gun',level:23},
+    {id:'ar_cyclone',name:'Cyclone 6',type:'Assault rifle',level:24},
+    {id:'dmr_cobalt',name:'Cobalt DMR',type:'Marksman rifle',level:26},
+    {id:'shot_quarry',name:'Quarry 12G',type:'Shotgun',level:27},
+    {id:'ar_drifter',name:'Drifter 5.45',type:'Assault rifle',level:28},
+    {id:'lmg_mammoth',name:'Mammoth 90',type:'Light machine gun',level:29},
+    {id:'special_surge',name:'Surge Repeater',type:'Special',level:30},
+    {id:'smg_ghostline',name:'Ghostline-7',type:'Submachine gun',level:31},
+    {id:'shot_breaker',name:'Breaker 10',type:'Shotgun',level:33},
+    {id:'dmr_sentinel',name:'Sentinel DMR',type:'Marksman rifle',level:34},
+    {id:'ar_onslaught',name:'Onslaught 7.62',type:'Assault rifle',level:35},
+    {id:'lmg_colossus',name:'Colossus 100',type:'Light machine gun',level:36},
+    {id:'special_flux',name:'Flux Carbine',type:'Special',level:37},
+    {id:'sniper_nightfall',name:'Nightfall 338',type:'Sniper rifle',level:38},
+    {id:'shot_grit',name:'Grit Levergun',type:'Shotgun',level:39},
+    {id:'ar_raptor',name:'Raptor 6.8',type:'Assault rifle',level:41},
+    {id:'dmr_wayfinder',name:'Wayfinder 6',type:'Marksman rifle',level:42},
+    {id:'lmg_hammerfall',name:'Hammerfall 80',type:'Light machine gun',level:43},
+    {id:'smg_afterburn',name:'Afterburn-9',type:'Submachine gun',level:44},
+    {id:'shot_hellion',name:'Hellion 12',type:'Shotgun',level:45},
+    {id:'sniper_whiteout',name:'Whiteout .338',type:'Sniper rifle',level:46},
+    {id:'ar_blackbird',name:'Blackbird 6.5',type:'Assault rifle',level:47},
+    {id:'special_prism',name:'Prism Driver',type:'Special',level:48},
+    {id:'lmg_granite',name:'Granite 100',type:'Light machine gun',level:49},
+    {id:'dmr_vigil',name:'Vigil 7.62',type:'Marksman rifle',level:50},
+    {id:'shot_doomsday',name:'Doomsday 12',type:'Shotgun',level:51},
+    {id:'ar_kingfisher',name:'Kingfisher 6',type:'Assault rifle',level:52},
+    {id:'sniper_eventide',name:'Eventide Rail',type:'Sniper rifle',level:53},
+    {id:'smg_undertow',name:'Undertow-45',type:'Submachine gun',level:54}
+  ];
+  const rateVariants=[.94,1,1.06],spreadVariants=[.94,1,1.06];
+  for (const [index,entry] of primaryUnlocks.entries()) {
+    const profile=weaponProfiles[entry.type],variant=index%3;
+    weapons[entry.id]={...profile,name:entry.name,type:entry.type,level:entry.level,slot:'primary',
+      damage:Math.round(profile.damage+variant*2+Math.floor(entry.level/15)),
+      rate:Math.round(profile.rate*rateVariants[variant]),
+      mag:profile.mag+variant*(entry.type==='Light machine gun'?5:2),
+      range:profile.range+variant*15,spread:profile.spread*spreadVariants[variant]};
+  }
+  const secondaryWeapons={
+    pistol_sidekick:{name:'Sidekick 9',type:'Pistol',level:1,damage:30,rate:260,mag:15,range:520,spread:.025,reload:1250,model:'pistol'},
+    pistol_trail:{name:'Trailblazer .45',type:'Pistol',level:4,damage:36,rate:330,mag:12,range:540,spread:.022,reload:1350,model:'pistol'},
+    pistol_rivet:{name:'Rivet Auto',type:'Pistol',level:9,damage:20,rate:105,mag:24,range:420,spread:.055,reload:1450,model:'pistol'},
+    pistol_warden:{name:'Warden .50',type:'Pistol',level:14,damage:48,rate:430,mag:8,range:600,spread:.035,reload:1600,model:'pistol'},
+    pistol_dart:{name:'Dart 9',type:'Pistol',level:19,damage:26,rate:185,mag:20,range:510,spread:.03,reload:1300,model:'pistol'},
+    pistol_marshal:{name:'Marshal 44',type:'Pistol',level:25,damage:58,rate:560,mag:6,range:620,spread:.028,reload:1800,model:'pistol'},
+    pistol_quickdraw:{name:'Quickdraw 9',type:'Pistol',level:31,damage:33,rate:215,mag:18,range:540,spread:.025,reload:1350,model:'pistol'},
+    pistol_shock:{name:'Shockline',type:'Pistol',level:37,damage:25,rate:145,mag:22,range:500,spread:.04,reload:1550,model:'pistol'},
+    pistol_longarm:{name:'Longarm .357',type:'Pistol',level:44,damage:64,rate:620,mag:6,range:680,spread:.018,reload:1750,model:'pistol'},
+    pistol_viper:{name:'Viper Burst',type:'Pistol',level:50,damage:24,rate:95,mag:27,range:460,spread:.065,reload:1600,model:'pistol'},
+    explosive_mite:{name:'Mite Micro-Rocket',type:'Explosive',level:12,damage:75,rate:900,mag:3,range:600,spread:.018,reload:2200,radius:105,model:'launcher'},
+    explosive_breach:{name:'Breach Charge Launcher',type:'Explosive',level:22,damage:95,rate:1100,mag:2,range:660,spread:.012,reload:2500,radius:125,model:'launcher'},
+    explosive_spark:{name:'Spark Grenadier',type:'Explosive',level:33,damage:65,rate:520,mag:4,range:560,spread:.035,reload:2100,radius:95,model:'launcher'},
+    explosive_talon:{name:'Talon AT',type:'Explosive',level:41,damage:120,rate:1350,mag:1,range:800,spread:.009,reload:3000,radius:150,model:'launcher'},
+    explosive_quake:{name:'Quake Tube',type:'Explosive',level:48,damage:100,rate:1000,mag:2,range:720,spread:.015,reload:2600,radius:140,model:'launcher'},
+    explosive_storm:{name:'Stormcell Launcher',type:'Explosive',level:54,damage:85,rate:650,mag:3,range:640,spread:.028,reload:2400,radius:120,model:'launcher'}
+  };
+  for (const weapon of Object.values(secondaryWeapons)) weapon.slot='secondary';
+  Object.assign(weapons,secondaryWeapons);
   const attachments = {
     control_grip:{name:'Angled control grip',effect:'Better recoil control',spread:.68,cost:250},
     control_comp:{name:'Compensator',effect:'Better recoil control',spread:.78,cost:350},
@@ -39,11 +128,11 @@
     mag_fast:{name:'Fast magazine',effect:'Faster reload',reload:.68,cost:450}
   };
   const vehicles = {
-    scout_bike:{name:'Scout bike',speed:2.4,color:'#d8c76f'},
-    assault_rover:{name:'Assault rover',speed:3.3,color:'#b8836e'},
-    tank:{name:'Battle tank',speed:2.6,color:'#71836e'},
-    anti_air:{name:'Anti-air',speed:2.9,color:'#8da1a4'},
-    transport_helicopter:{name:'Transport helicopter',speed:3.2,color:'#8da1a4'}
+    scout_bike:{name:'Scout bike',speed:1.25,color:'#d8c76f'},
+    assault_rover:{name:'Assault rover',speed:1.35,color:'#b8836e'},
+    tank:{name:'Battle tank',speed:1,color:'#71836e'},
+    anti_air:{name:'Anti-air',speed:1.15,color:'#8da1a4'},
+    transport_helicopter:{name:'Transport helicopter',speed:.85,color:'#8da1a4'}
   };
   const vehicleWeapons={
     tank:{name:'Tank cannon',mag:8,damage:125,rate:1100,range:1250,spread:.012,reload:3200},
@@ -56,7 +145,7 @@
     {id:'west-warehouse-b',x:455,y:515,w:285,h:180},
     {id:'west-office-a',x:700,y:230,w:205,h:245},
     {id:'west-office-b',x:970,y:220,w:280,h:185},
-    {id:'west-depot',x:1090,y:485,w:330,h:205},
+    {id:'west-depot',x:1090,y:485,w:390,h:260,enterable:true,doorX:1090,doorY:615},
     {id:'north-district-a',x:1250,y:130,w:230,h:190},
     {id:'north-district-b',x:1510,y:205,w:300,h:220},
     {id:'north-district-c',x:1790,y:145,w:220,h:270},
@@ -68,12 +157,12 @@
     {id:'south-district-a',x:1960,y:1200,w:275,h:205},
     {id:'south-district-b',x:1650,y:1190,w:330,h:185},
     {id:'south-district-c',x:1360,y:1280,w:250,h:175},
-    {id:'south-depot',x:1040,y:1050,w:320,h:220},
+    {id:'south-depot',x:1040,y:1050,w:380,h:270,enterable:true,doorX:1420,doorY:1185},
     {id:'south-office-a',x:730,y:1190,w:235,h:220},
     {id:'south-office-b',x:480,y:980,w:300,h:190},
     {id:'central-yard-a',x:780,y:690,w:250,h:190},
     {id:'central-yard-b',x:1080,y:780,w:295,h:190},
-    {id:'central-office-a',x:1640,y:650,w:260,h:190},
+    {id:'central-office-a',x:1300,y:600,w:400,h:300,enterable:true,doorX:1300,doorY:750,label:'RELAY HALL'},
     {id:'central-office-b',x:1930,y:710,w:310,h:200},
     {id:'central-warehouse',x:2250,y:690,w:270,h:190}
   ].map(building=>({...building,type:'building'}));
@@ -134,6 +223,7 @@
   let captureTarget = '';
   let captureStartedAt = 0;
   let captureDuration = 0;
+  let lastAnnouncementId='';
   let vehicleActionBusy=false;
   let localPosition = null;
   let positionWriteBusy = false;
@@ -143,6 +233,7 @@
   let marketHistory = [];
   let reloadTimer=0;
   let reloadEndsAt=0;
+  let reloadStartedAt=0;
   let turretTimer=0;
   let activeDrone=false;
   let droneControlled=true;
@@ -172,7 +263,12 @@
   const spectatorPositions=new Map();
   let destroyed = false;
   let respawnBusy = false;
+  let paused=false;
+  let audioContext=null;
+  let soundEnabled=true;
+  let soundVolume=.18;
   let lastStatsMarkup = '';
+  let lastHudMarkup='';
   let lastResetLabel = '';
 
   function weekKey(date = new Date()) {
@@ -185,10 +281,10 @@
   }
 
   async function toggleFullscreen() {
-    if (!container||!ui?.fullscreen) return;
+    if (!ui?.mapWrap||!ui.fullscreen) return;
     try {
-      if (document.fullscreenElement===container) await document.exitFullscreen();
-      else if (container.requestFullscreen) await container.requestFullscreen();
+      if (document.fullscreenElement===ui.mapWrap) await document.exitFullscreen();
+      else if (ui.mapWrap.requestFullscreen) await ui.mapWrap.requestFullscreen();
       else setStatus('Fullscreen is not supported by this browser.',true);
     } catch(error) {
       setStatus(error.message||'Could not change fullscreen mode.',true);
@@ -197,9 +293,90 @@
 
   function updateFullscreenButton() {
     if (!ui?.fullscreen) return;
-    const isFullscreen=document.fullscreenElement===container;
+    const isFullscreen=document.fullscreenElement===ui.mapWrap;
     ui.fullscreen.textContent=isFullscreen?'Exit fullscreen':'Fullscreen';
     ui.fullscreen.setAttribute('aria-pressed',String(isFullscreen));
+  }
+
+  function togglePause(force) {
+    if (!ui?.pauseMenu) return;
+    const next=typeof force==='boolean'?force:!paused;
+    if (next===paused) return;
+    paused=next;
+    keys.clear();
+    pointerDown=false;
+    if (paused) {
+      for (const entry of ui.pauseItems) {
+        if (entry.element.parentNode&&!entry.placeholder.isConnected)
+          entry.element.parentNode.insertBefore(entry.placeholder,entry.element);
+        ui.pauseContent.appendChild(entry.element);
+      }
+      ui.pauseMenu.hidden=false;
+      ui.pauseButton.textContent='Resume (Esc)';
+      setStatus('Paused locally. The multiplayer match continues.');
+      playSound('pause');
+    } else {
+      for (const entry of ui.pauseItems) {
+        if (entry.placeholder.parentNode) {
+          entry.placeholder.parentNode.insertBefore(entry.element,entry.placeholder.nextSibling);
+          entry.placeholder.remove();
+        }
+      }
+      ui.pauseMenu.hidden=true;
+      ui.pauseButton.textContent='Pause (Esc)';
+      setStatus('Resumed.');
+      playSound('pause');
+    }
+    ui.pauseButton.setAttribute('aria-pressed',String(paused));
+  }
+
+  function toggleSound() {
+    soundEnabled=!soundEnabled;
+    if (soundEnabled&&soundVolume<=0) {
+      soundVolume=.18;
+      if (ui?.soundVolume) ui.soundVolume.value='18';
+    }
+    if (ui?.soundToggle) ui.soundToggle.textContent=soundEnabled?'Sound: on':'Sound: off';
+    if (soundEnabled) playSound('pause');
+  }
+
+  function playSound(kind) {
+    if (!soundEnabled||soundVolume<=0) return;
+    try {
+      const AudioContextClass=globalThis.AudioContext||globalThis.webkitAudioContext;
+      if (!AudioContextClass) return;
+      if (!audioContext) audioContext=new AudioContextClass();
+      if (audioContext.state==='suspended') Promise.resolve(audioContext.resume()).catch(()=>{});
+      const sounds={
+        shot:{start:155,end:65,duration:.065,type:'square',gain:.42},
+        switch:{start:310,end:520,duration:.11,type:'triangle',gain:.32},
+        throw:{start:480,end:240,duration:.18,type:'triangle',gain:.3},
+        reload:{start:560,end:190,duration:.25,type:'sawtooth',gain:.25},
+        explosion:{start:105,end:38,duration:.22,type:'triangle',gain:.55},
+        drone:{start:260,end:520,duration:.13,type:'triangle',gain:.32},
+        pause:{start:360,end:240,duration:.1,type:'sine',gain:.24}
+      };
+      const sound=sounds[kind];
+      if (!sound) return;
+      const now=audioContext.currentTime;
+      const oscillator=audioContext.createOscillator();
+      const volume=audioContext.createGain();
+      oscillator.type=sound.type;
+      oscillator.frequency.setValueAtTime(sound.start,now);
+      oscillator.frequency.exponentialRampToValueAtTime(sound.end,now+sound.duration);
+      volume.gain.setValueAtTime(.0001,now);
+      volume.gain.linearRampToValueAtTime(soundVolume*sound.gain,now+.008);
+      volume.gain.exponentialRampToValueAtTime(.0001,now+sound.duration);
+      oscillator.connect(volume);volume.connect(audioContext.destination);
+      oscillator.start(now);oscillator.stop(now+sound.duration+.015);
+    } catch(error) { console.debug('[Dropzone] Audio is unavailable.',error); }
+  }
+
+  function setSoundVolume(value) {
+    soundVolume=Math.max(0,Math.min(1,Number(value)||0));
+    soundEnabled=soundVolume>0;
+    if (ui?.soundToggle) ui.soundToggle.textContent=soundEnabled?'Sound: on':'Sound: off';
+    if (ui?.soundVolume) ui.soundVolume.value=String(Math.round(soundVolume*100));
   }
 
   async function hitTurret(id,damage) {
@@ -231,6 +408,7 @@
       economyClock:Date.now(),
       sekoriumPayoutAt:Date.now(),
       matchResetAt:0,
+      announcements:{},
       vehicles:{},
       turrets:{},
       drones:{},
@@ -300,9 +478,11 @@
         users&&typeof users==='object'?Object.entries(users):[];
       const entry=entries.find(([,user])=>user&&String(user.username).toLowerCase()===String(username).toLowerCase());
       if (!entry) throw new Error('Your Nexus account could not be found. Reconnect to Nexus and try again.');
+      const cachedUser=entry[1];
       const result=await firebaseApi.database().ref(sharedPath+'/users/'+entry[0]).transaction(current=>{
-        if (!current||typeof current!=='object') return;
-        const next=JSON.parse(JSON.stringify(current));
+        const source=current&&typeof current==='object'?current:cachedUser;
+        if (!source||typeof source!=='object') return;
+        const next=JSON.parse(JSON.stringify(source));
         updater(next);
         return next;
       });
@@ -405,7 +585,8 @@
       players:Object.fromEntries(Object.entries(players).map(([key,player])=>[key,player?{
         armorPlates:0,armorHp:0,selfRevives:0,droneCharges:0,turretCharges:0,
         smokeCharges:2,stimCharges:2,grenadeCharges:2,claymoreCharges:1,
-        tactical:'smoke',lethal:'grenade',downed:false,downedAt:0,vehiclePad:'',vehicleAmmo:0,
+          tactical:'smoke',lethal:'grenade',secondary:'pistol_sidekick',secondaryAmmo:15,
+          activeWeaponSlot:'primary',downed:false,downedAt:0,vehiclePad:'',vehicleAmmo:0,
         ...player,...(legacyMap?scaleRecord(player):{}),
         vehicleAmmo:vehicleWeapons[player.vehicle]
           ?Math.max(0,Math.min(vehicleWeapons[player.vehicle].mag,
@@ -416,6 +597,8 @@
       nodes:{...base.nodes,...(value.nodes || {})},
       bases:{...base.bases,...(value.bases || {})},
       economy:{...base.economy,...(value.economy || {})},
+      announcements:value.announcements&&typeof value.announcements==='object'&&!Array.isArray(value.announcements)
+        ?value.announcements:{},
       lootBoxes:{...base.lootBoxes,...(value.lootBoxes||{})},
       nextRandomLootAt:Number(value.nextRandomLootAt)||base.nextRandomLootAt,
       vehicles:Object.fromEntries(Object.entries(scaleCollection(value.vehicles))
@@ -430,33 +613,42 @@
   }
 
   async function getPlayerTeam(name) {
-    if (firebaseMode) {
-      const snapshot = await firebaseApi.database().ref(sharedPath + '/users').get();
-      const users = snapshot.val() || [];
-      const user = Array.isArray(users)
-        ? users.find(entry => entry && String(entry.username).toLowerCase() === name.toLowerCase())
-        : Object.values(users).find(entry => entry && String(entry.username).toLowerCase() === name.toLowerCase());
-      return user && user.team;
+    const user=accountFor(await readAccountWorld(),name);
+    const currentWeek=weekKey();
+    if (user.teamWeek!==currentWeek) {
+      await updateAccountByName(name,current=>{
+        if (current.teamWeek!==currentWeek) {
+          current.team='';
+          current.teamWeek=currentWeek;
+        }
+      });
+      return '';
     }
-    if (lanMode) {
-      const response = await fetch(requestUrl(sharedPath));
-      if (!response.ok) throw new Error((await response.text()) || 'Could not read your Nexus team.');
-      const data = await response.json();
-      const users = data && Array.isArray(data.users) ? data.users : [];
-      const user = users.find(entry => entry && String(entry.username).toLowerCase() === name.toLowerCase());
-      return user && user.team;
-    }
-    const data = JSON.parse(localStorage.getItem(localWorldKey) || 'null');
-    const user = data && Array.isArray(data.users)
-      ? data.users.find(entry => entry && String(entry.username).toLowerCase() === name.toLowerCase())
-      : null;
-    return user && user.team;
+    return user.team;
   }
 
   function setStatus(message, error = false) {
     if (!ui || !ui.status) return;
     ui.status.textContent = message;
     ui.status.classList.toggle('error',error);
+  }
+
+  function newestAnnouncement(announcements) {
+    return Object.entries(announcements||{}).sort((a,b)=>
+      Number(a[1]?.createdAt||0)-Number(b[1]?.createdAt||0)).at(-1)||null;
+  }
+
+  async function announceWar(message) {
+    const id='announcement_'+Date.now()+'_'+Math.random().toString(16).slice(2);
+    const announcement={text:message,createdAt:Date.now()};
+    const updated=await updateWar('announcements',current=>{
+      const next={...(current||{}),[id]:announcement};
+      return Object.fromEntries(Object.entries(next)
+        .sort((a,b)=>Number(a[1]?.createdAt||0)-Number(b[1]?.createdAt||0)).slice(-12));
+    });
+    if (warState) warState.announcements=updated||{[id]:announcement};
+    lastAnnouncementId=id;
+    setStatus(message);
   }
 
   function safeZoneFor(team) {
@@ -488,11 +680,13 @@
   }
 
   function playerDefaults() {
-    const initial={weapon:'ar_pulse',attachments:[],tactical:'smoke',lethal:'grenade'};
+    const initial={weapon:'ar_pulse',secondary:'pistol_sidekick',activeWeaponSlot:'primary',
+      attachments:[],tactical:'smoke',lethal:'grenade'};
     const spawn=basePositions[playerTeam];
     return {
       name:playerName,team:playerTeam,x:playerTeam==='vortex'?spawn.x+150:spawn.x-150,y:spawn.y,
-      hp:100,ammo:effectiveWeapon(initial).mag,kills:0,deaths:0,...initial,loadoutSet:false,
+      hp:100,ammo:effectiveWeapon(initial,'primary').mag,
+      secondaryAmmo:effectiveWeapon(initial,'secondary').mag,kills:0,deaths:0,...initial,loadoutSet:false,
       vehiclePad:'',vehicleAmmo:0,
       armorPlates:0,armorHp:0,selfRevives:0,droneCharges:0,turretCharges:0,
       smokeCharges:2,stimCharges:2,grenadeCharges:2,claymoreCharges:1,
@@ -563,18 +757,28 @@
       if (!saved || saved.week !== weekKey()||Number(saved.arenaVersion||1)<arenaVersion) localStorage.setItem(localGameKey,JSON.stringify(warState));
       window.addEventListener('storage',onLocalWarStorage);
     }
+    const initialAnnouncement=newestAnnouncement(warState&&warState.announcements);
+    lastAnnouncementId=initialAnnouncement?initialAnnouncement[0]:'';
     await refreshAccount();
     const activePlayer=await mutatePlayer(player => {
       const initial = playerDefaults();
       const level=accountData.dropzone.level;
-      const selectedWeapon=player && weapons[player.weapon] && weapons[player.weapon].level<=level
-        ? player.weapon : initial.weapon;
+      const selectedWeapon=player&&weapons[player.weapon]&&weapons[player.weapon].slot!=='secondary'&&
+        weapons[player.weapon].level<=level?player.weapon:initial.weapon;
+      const selectedSecondary=player&&weapons[player.secondary]?.slot==='secondary'&&
+        weapons[player.secondary].level<=level?player.secondary:
+        player&&weapons[player.weapon]?.slot==='secondary'&&weapons[player.weapon].level<=level
+          ?player.weapon:initial.secondary;
       const selectedAttachments=(player && Array.isArray(player.attachments)?player.attachments:[])
         .filter(id=>accountData.dropzone.ownedAttachments.includes(id));
-      const selectedMag=effectiveWeapon({weapon:selectedWeapon,attachments:selectedAttachments}).mag;
+      const selectedMag=effectiveWeapon({weapon:selectedWeapon,attachments:selectedAttachments},'primary').mag;
+      const selectedSecondaryMag=effectiveWeapon({secondary:selectedSecondary,attachments:selectedAttachments},'secondary').mag;
       return {...initial,...(player || {}),name:playerName,team:playerTeam,
-        weapon:selectedWeapon,attachments:selectedAttachments,
+        weapon:selectedWeapon,secondary:selectedSecondary,attachments:selectedAttachments,
         ammo:player && selectedWeapon===player.weapon?Math.min(Number(player.ammo)||0,selectedMag):selectedMag,
+        secondaryAmmo:player&&selectedSecondary===player.secondary
+          ?Math.min(Number(player.secondaryAmmo)||0,selectedSecondaryMag):selectedSecondaryMag,
+        activeWeaponSlot:player&&player.activeWeaponSlot==='secondary'?'secondary':'primary',
         online:true,lastSeen:Date.now()};
     });
     localPosition={x:Number(activePlayer.x),y:Number(activePlayer.y)};
@@ -595,6 +799,13 @@
     const previousReset=Number(warState&&warState.matchResetAt||0);
     const stale=!value || value.week!==weekKey();
     warState=normalizeWar(value);
+    const latestAnnouncement=newestAnnouncement(warState.announcements);
+    if (latestAnnouncement&&latestAnnouncement[0]!==lastAnnouncementId) {
+      const wasInitialized=!!lastAnnouncementId;
+      lastAnnouncementId=latestAnnouncement[0];
+      if (wasInitialized&&Date.now()-Number(latestAnnouncement[1]?.createdAt||0)<15_000)
+        setStatus(latestAnnouncement[1].text||'Frontline update.');
+    }
     if (stale) {
       if (lanMode) lanPut(warState).catch(error=>setStatus(error.message,true));
       else if (!firebaseMode) localStorage.setItem(localGameKey,JSON.stringify(warState));
@@ -651,8 +862,9 @@
     return result;
   }
 
-  function effectiveWeapon(player) {
-    const weapon = weapons[player && player.weapon] || weapons.ar_pulse;
+  function effectiveWeapon(player,slot=player&&player.activeWeaponSlot||'primary') {
+    const weaponId=slot==='secondary'?player&&player.secondary:player&&player.weapon;
+    const weapon = weapons[weaponId] || weapons.ar_pulse;
     const mods = (player && Array.isArray(player.attachments) ? player.attachments : [])
       .map(id => attachments[id]).filter(Boolean);
     return {
@@ -677,6 +889,8 @@
         .catch(error=>setStatus(error.message||'Resource updates failed.',true)),5000);
     turretTimer=window.setInterval(()=>updateTurrets()
       .then(updateClaymores)
+      .then(updateGrenades)
+      .then(updateParkedVehicles)
       .catch(error=>setStatus(error.message||'Field equipment update failed.',true)),500);
     lootTimer=window.setInterval(()=>updateLootBoxes()
       .catch(error=>setStatus(error.message||'Loot crates could not be refreshed.',true)),5000);
@@ -723,7 +937,8 @@
       const spawn=basePositions[playerTeam];
       const respawn={x:playerTeam==='vortex'?spawn.x+150:spawn.x-150,y:spawn.y};
       mutatePlayer(current=>current?{...current,hp:100,
-        ...respawn,vehicle:'',ammo:effectiveWeapon(current).mag,
+        ...respawn,vehicle:'',ammo:effectiveWeapon(current,'primary').mag,
+        secondaryAmmo:effectiveWeapon(current,'secondary').mag,
         smokeCharges:2,stimCharges:2,grenadeCharges:2,claymoreCharges:1,
         respawnAt:0,online:true,lastSeen:Date.now()}:current)
         .then(()=>{localPosition=respawn;})
@@ -735,25 +950,26 @@
       localPosition={x:Number(player.x),y:Number(player.y)};
       houseInside=String(player.houseInside||'');
     }
-    if (player && player.online && player.hp>0 && !player.downed && !activeDrone && player.respawnAt<=Date.now() && !reloading && !captureBusy) {
+    if (!paused&&player&&player.online&&player.hp>0&&!player.downed&&!activeDrone&&
+      player.respawnAt<=Date.now()&&!reloading&&!captureBusy) {
       const elapsed=Math.min(.05,Math.max(0,(timestamp-(gameFrame.lastFrame||timestamp))/1000));
       const transport=player.transportId&&warState.vehicles&&warState.vehicles[player.transportId];
       const pilot=transport&&transport.pilot===playerKey;
       const vehicle=vehicles[player.vehicle];
-      const topSpeed=(vehicle?1700*vehicle.speed:1500)*(Number(player.speedBoostUntil||0)>Date.now()?1.8:1);
+      const topSpeed=(vehicle?1700*vehicle.speed:2700)*(Number(player.speedBoostUntil||0)>Date.now()?1.8:1);
       const canDrive=!player.transportId||pilot;
       const dx=canDrive?((keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0)):0;
       const dy=canDrive?((keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0)):0;
       if (pilot&&!dx&&!dy) localPosition={x:Number(transport.x),y:Number(transport.y)};
       let moveX=dx;
       let moveY=dy;
-      if (!vehicle&&aimActive&&Math.hypot(aimOffset.x,aimOffset.y)>1) {
+      if (aimActive&&Math.hypot(aimOffset.x,aimOffset.y)>1) {
         const angle=Math.atan2(aimOffset.y,aimOffset.x);
         moveX=-Math.sin(angle)*dx-Math.cos(angle)*dy;
         moveY=Math.cos(angle)*dx-Math.sin(angle)*dy;
       }
       const length=Math.hypot(moveX,moveY)||1;
-      const ease=1-Math.exp(-30*elapsed);
+      const ease=1-Math.exp(-12*elapsed);
       movementVelocity.x+=(moveX/length*topSpeed-movementVelocity.x)*ease;
       movementVelocity.y+=(moveY/length*topSpeed-movementVelocity.y)*ease;
       const next={x:Math.max(70,Math.min(worldWidth-70,localPosition.x+movementVelocity.x*elapsed)),
@@ -771,8 +987,17 @@
         const start={...localPosition};
         for (let step=1;step<=steps;step++) {
           const candidate={x:start.x+(next.x-start.x)*step/steps,y:start.y+(next.y-start.y)*step/steps};
-          if (obstacles.some(item=>circleIntersectsRect(candidate.x,candidate.y,28,item))||
-              lootBoxIntersects(candidate.x,candidate.y,28)) break;
+          const blocked=point=>obstacles.some(item=>circleIntersectsRect(point.x,point.y,28,item))||
+            lootBoxIntersects(point.x,point.y,28);
+          if (blocked(candidate)) {
+            const slideX={x:candidate.x,y:localPosition.y};
+            const slideY={x:localPosition.x,y:candidate.y};
+            if (!blocked(slideX)) localPosition.x=slideX.x;
+            else movementVelocity.x=0;
+            if (!blocked(slideY)) localPosition.y=slideY.y;
+            else movementVelocity.y=0;
+            break;
+          }
           localPosition=candidate;
         }
       } else localPosition=next;
@@ -780,21 +1005,33 @@
         lastPositionWrite=timestamp;
         positionWriteBusy=true;
         const next={...localPosition};
-        mutatePlayer(current=>current?{...current,...next,lastSeen:Date.now()}:current)
+        const facingAngle=aimActive?Math.atan2(aimOffset.y,aimOffset.x):Number(player.facingAngle)||0;
+        mutatePlayer(current=>current?{...current,...next,facingAngle,lastSeen:Date.now()}:current)
           .catch(error=>setStatus(error.message,true))
           .finally(()=>{positionWriteBusy=false;});
       }
-      if (pilot) updateTransportPosition(transport,localPosition,elapsed)
+      if (pilot) updateTransportPosition(transport,localPosition,
+        (keys.has('e')?1:0)-(keys.has('q')?1:0))
         .catch(error=>setStatus(error.message||'Could not update helicopter lift.',true));
     }
     const viewPosition=player&&player.transportId&&warState.vehicles[player.transportId]
       ?warState.vehicles[player.transportId]:localPosition;
     if (viewPosition) cameraPosition={x:Number(viewPosition.x),y:Number(viewPosition.y)};
     if (aimActive) aim={x:cameraPosition.x+aimOffset.x,y:cameraPosition.y+aimOffset.y};
-    if (activeDrone) updateDrone(timestamp);
+    if (activeDrone&&!paused) updateDrone(timestamp);
     if (reloadEndsAt) {
       const remaining=Math.max(0,reloadEndsAt-Date.now());
-      ui.reloadTimer.textContent=remaining?' · '+(remaining/1000).toFixed(1)+'s':'';
+      ui.reloadHud.hidden=!remaining;
+      ui.reloadTimer.textContent=remaining?'RELOADING · '+(remaining/1000).toFixed(1)+'s':'';
+      ui.reloadTimer.hidden=!remaining;
+      if (ui.reloadProgress) {
+        const total=Math.max(1,reloadEndsAt-reloadStartedAt);
+        ui.reloadProgress.style.width=Math.min(100,(total-remaining)/total*100)+'%';
+      }
+    } else if (ui.reloadProgress) {
+      ui.reloadHud.hidden=true;
+      ui.reloadTimer.hidden=true;
+      ui.reloadProgress.style.width='0%';
     }
     gameFrame.lastFrame = timestamp;
     draw(timestamp);
@@ -824,6 +1061,7 @@
     for (let y=Math.floor(top/720)*720;y<top+height+720;y+=720) {
       context.beginPath();context.moveTo(left,y);context.lineTo(left+width,y);context.stroke();
     }
+    drawTerrain(context,left,top,width,height);
     context.strokeStyle = '#54705d';
     context.strokeRect(0,0,worldWidth,worldHeight);
     drawSafeZone(context,'vortex');
@@ -848,7 +1086,10 @@
     });
     Object.values(warState.turrets||{}).forEach(turret=>drawTurret(context,turret));
     Object.values(warState.drones||{}).forEach(drone=>drawDrone(context,drone));
-    Object.values(warState.vehicles||{}).forEach(vehicle=>drawTransport(context,vehicle));
+    Object.values(warState.vehicles||{}).forEach(vehicle=>{
+      drawTransport(context,vehicle);
+      drawParkedVehicle(context,vehicle);
+    });
     Object.values(warState.smokes||{}).forEach(smoke=>drawSmoke(context,smoke));
     Object.values(warState.claymores||{}).forEach(claymore=>drawClaymore(context,claymore));
     Object.values(warState.grenades||{}).forEach(grenade=>drawThrownGrenade(context,grenade));
@@ -865,6 +1106,39 @@
     drawMinimap();
     updateStats(visiblePlayers);
     updateCaptureProgress();
+  }
+
+  function drawTerrain(context,left,top,width,height) {
+    const spacing=2880,roadWidth=156;
+    context.fillStyle='#3a463e';
+    for (let x=Math.floor(left/spacing)*spacing;x<left+width+spacing;x+=spacing) {
+      context.fillRect(x-roadWidth/2,Math.max(0,top),roadWidth,Math.min(worldHeight,top+height)-Math.max(0,top));
+    }
+    for (let y=Math.floor(top/spacing)*spacing;y<top+height+spacing;y+=spacing) {
+      context.fillRect(Math.max(0,left),y-roadWidth/2,Math.min(worldWidth,left+width)-Math.max(0,left),roadWidth);
+    }
+    context.strokeStyle='rgba(210,205,160,.28)';
+    context.lineWidth=3;
+    context.setLineDash([26,34]);
+    for (let x=Math.floor(left/spacing)*spacing;x<left+width+spacing;x+=spacing) {
+      context.beginPath();context.moveTo(x,Math.max(0,top));context.lineTo(x,Math.min(worldHeight,top+height));context.stroke();
+    }
+    for (let y=Math.floor(top/spacing)*spacing;y<top+height+spacing;y+=spacing) {
+      context.beginPath();context.moveTo(Math.max(0,left),y);context.lineTo(Math.min(worldWidth,left+width),y);context.stroke();
+    }
+    context.setLineDash([]);
+    const cellSize=210;
+    for (let cellX=Math.floor(left/cellSize);cellX<=(left+width)/cellSize;cellX++) {
+      for (let cellY=Math.floor(top/cellSize);cellY<=(top+height)/cellSize;cellY++) {
+        const roll=Math.abs(Math.sin(cellX*12.9898+cellY*78.233)*43758.5453)%1;
+        if (roll<.68) continue;
+        const x=cellX*cellSize+roll*150,y=cellY*cellSize+(1-roll)*150;
+        if (Math.abs(x-Math.round(x/spacing)*spacing)<roadWidth/2||
+            Math.abs(y-Math.round(y/spacing)*spacing)<roadWidth/2) continue;
+        context.fillStyle=roll>.86?'rgba(113,139,91,.34)':'rgba(47,72,53,.38)';
+        context.beginPath();context.ellipse(x,y,10+roll*8,6+roll*5,roll*2,0,Math.PI*2);context.fill();
+      }
+    }
   }
 
   function drawMinimap() {
@@ -1034,9 +1308,16 @@
         }
       }
       context.fillStyle='#d2c297';
-      context.font='bold 11px system-ui';
+      context.font=item.enterable?'bold 30px system-ui':'bold 11px system-ui';
       context.textAlign='center';
-      context.fillText('BLOCKED BUILDING',item.x+item.w/2,item.y+item.h/2+4);
+      context.fillText(item.label||(item.enterable?'ENTERABLE DEPOT':'BLOCKED BUILDING'),item.x+item.w/2,item.y+item.h/2+4);
+      if (item.enterable) {
+        context.fillStyle='#8ee6ac';
+        context.fillRect(item.doorX-16,item.doorY-10,32,20);
+        context.fillStyle='#101713';
+        context.font='bold 36px system-ui';
+        context.fillText('Q',item.doorX,item.doorY+5);
+      }
     } else if (item.type==='house') {
       context.fillStyle='#26352b';
       context.fillRect(item.x+12,item.y+12,item.w-24,item.h-24);
@@ -1083,7 +1364,7 @@
   }
 
   function drawTransport(context,vehicle) {
-    if (!vehicle||vehicle.type!==transportType||!Array.isArray(vehicle.passengers)) return;
+    if (!vehicle||vehicle.type!==transportType||!Array.isArray(vehicle.passengers)||vehicle.explodedAt) return;
     const altitude=Math.max(0,Math.min(100,Number(vehicle.altitude)||0));
     const scale=1+altitude/100;
     const x=Number(vehicle.x),groundY=Number(vehicle.y);
@@ -1103,19 +1384,182 @@
     context.fillRect(31,-21,4,42);
     context.beginPath();context.moveTo(-28,-2);context.lineTo(-56,-7);context.moveTo(-28,2);context.lineTo(-56,7);context.stroke();
     context.beginPath();context.moveTo(-5,-24);context.lineTo(5,-24);context.stroke();
+    const gunners=transportGunnerKeys(vehicle);
+    for (let seat=0;seat<4;seat++) {
+      const side=seat<2?-1:1;
+      const seatX=seat%2===0?-18:18;
+      const seatY=side*19;
+      context.strokeStyle='#26312c';
+      context.lineWidth=3/scale;
+      context.beginPath();context.moveTo(seatX,side*8);context.lineTo(seatX,side*29);context.stroke();
+      context.fillStyle=gunners[seat]?(vehicle.team==='vortex'?'#83b3ff':'#ff8792'):'#303a34';
+      context.beginPath();context.arc(seatX,seatY,5,0,Math.PI*2);context.fill();
+      context.strokeStyle='#d1ddd4';
+      context.lineWidth=2/scale;
+      context.beginPath();context.moveTo(seatX,side*22);context.lineTo(seatX,side*34);context.stroke();
+    }
     context.restore();
     context.fillStyle='#edf5ef';context.font='bold 13px system-ui';context.textAlign='center';
-    context.fillText(transportName+' · '+vehicle.passengers.length+'/10 · '+Math.round(altitude)+'m',x,y-34*scale);
+    const label=Number(vehicle.expiresAt)>Date.now()
+      ?'PARKED · '+Math.ceil((Number(vehicle.expiresAt)-Date.now())/1000)+'s'
+      :transportName+' · '+vehicle.passengers.length+'/10 · '+Math.round(altitude)+'m';
+    context.fillText(label,x,y-34*scale);
   }
 
-  async function updateTransportPosition(vehicle,position,elapsed) {
+  function drawVehicleSprite(context,type,x,y,bodyColor,teamColor,angle=0) {
+    context.save();
+    context.translate(x,y);
+    context.rotate(Number(angle)||0);
+    context.lineJoin='round';
+    if (type==='scout_bike') {
+      context.fillStyle='#101713';
+      for (const wheelX of [-24,24]) {
+        context.beginPath();context.arc(wheelX,0,8,0,Math.PI*2);context.fill();
+        context.strokeStyle='#9ca99e';context.lineWidth=2;
+        context.beginPath();context.arc(wheelX,0,4,0,Math.PI*2);context.stroke();
+      }
+      context.strokeStyle='#c1ccbf';context.lineWidth=5;
+      context.beginPath();context.moveTo(-20,0);context.lineTo(-7,-8);context.lineTo(10,0);
+      context.lineTo(20,0);context.lineTo(9,8);context.lineTo(-7,8);context.closePath();context.stroke();
+      context.fillStyle=bodyColor;
+      context.beginPath();context.ellipse(0,0,12,8,0,0,Math.PI*2);context.fill();
+      context.fillStyle='#252d28';context.fillRect(14,-9,12,3);context.fillRect(14,6,12,3);
+    } else if (type==='assault_rover') {
+      context.fillStyle='#151c18';
+      for (const wheelX of [-19,18]) for (const wheelY of [-20,20]) {
+        context.fillRect(wheelX-7,wheelY-5,14,10);
+        context.strokeStyle='#717c73';context.lineWidth=2;context.strokeRect(wheelX-7,wheelY-5,14,10);
+      }
+      context.fillStyle=bodyColor;context.strokeStyle=teamColor;context.lineWidth=3;
+      context.fillRect(-25,-15,51,30);context.strokeRect(-25,-15,51,30);
+      context.fillStyle='#273a34';
+      context.fillRect(-10,-11,19,22);
+      context.fillStyle='#a8c4bd';
+      context.fillRect(11,-10,10,20);
+      context.strokeStyle='#d1ddd4';context.lineWidth=2;
+      context.beginPath();context.moveTo(-8,0);context.lineTo(18,0);context.stroke();
+      context.fillStyle='#f0cc71';context.fillRect(23,-11,4,7);context.fillRect(23,4,4,7);
+    } else if (type==='tank') {
+      context.fillStyle='#29332d';
+      context.fillRect(-27,-22,55,9);context.fillRect(-27,13,55,9);
+      context.strokeStyle='#89968a';context.lineWidth=2;
+      context.strokeRect(-27,-22,55,9);context.strokeRect(-27,13,55,9);
+      context.fillStyle=bodyColor;context.strokeStyle=teamColor;context.lineWidth=3;
+      context.fillRect(-25,-13,48,26);context.strokeRect(-25,-13,48,26);
+      context.fillStyle='#596b59';
+      context.beginPath();context.ellipse(-2,0,13,11,0,0,Math.PI*2);context.fill();
+      context.strokeStyle='#28352b';context.lineWidth=7;
+      context.beginPath();context.moveTo(-2,0);context.lineTo(30,0);context.stroke();
+      context.strokeStyle='#bdc6bd';context.lineWidth=2;
+      context.beginPath();context.moveTo(22,0);context.lineTo(30,0);context.stroke();
+    } else if (type==='anti_air') {
+      context.fillStyle='#171f1c';
+      for (const wheelX of [-20,16]) for (const wheelY of [-19,19]) {
+        context.beginPath();context.arc(wheelX,wheelY,6,0,Math.PI*2);context.fill();
+      }
+      context.fillStyle=bodyColor;context.strokeStyle=teamColor;context.lineWidth=3;
+      context.fillRect(-26,-14,52,28);context.strokeRect(-26,-14,52,28);
+      context.fillStyle='#314743';context.fillRect(-9,-10,14,20);
+      context.strokeStyle='#d7e0d8';context.lineWidth=4;
+      context.beginPath();context.moveTo(1,-6);context.lineTo(31,-17);context.moveTo(1,6);context.lineTo(31,17);context.stroke();
+      context.strokeStyle='#59655d';context.lineWidth=8;
+      context.beginPath();context.moveTo(21,-13);context.lineTo(31,-17);context.moveTo(21,13);context.lineTo(31,17);context.stroke();
+    }
+    context.restore();
+  }
+
+  function drawHeldWeapon(context,weapon) {
+    const model=weapon.model||({
+      'Assault rifle':'rifle','Submachine gun':'smg','Sniper rifle':'sniper',Special:'special'
+    }[weapon.type]||'rifle');
+    context.lineCap='square';
+    context.fillStyle='#18211c';
+    context.strokeStyle='#c0c9be';
+    context.lineWidth=1.5;
+    if (model==='pistol') {
+      context.fillRect(13,-3,18,6);
+      context.fillStyle='#5b6c60';context.fillRect(17,-4,13,2);
+      context.fillStyle='#25332a';context.fillRect(17,2,7,7);
+      context.fillStyle='#111a15';context.fillRect(29,-2,5,4);
+    } else if (model==='shotgun') {
+      context.fillRect(10,-5,33,10);
+      context.fillStyle='#586252';context.fillRect(15,-6,17,12);
+      context.fillStyle='#202922';context.fillRect(25,5,5,10);
+      context.fillRect(39,-3,8,6);
+    } else if (model==='sniper') {
+      context.fillRect(8,-3,47,6);
+      context.fillStyle='#58675c';context.fillRect(16,-5,20,3);
+      context.fillRect(19,2,8,4);
+      context.fillStyle='#131a16';context.fillRect(51,-1.5,11,3);
+    } else if (model==='lmg') {
+      context.fillRect(10,-5,38,10);
+      context.fillStyle='#59665b';context.fillRect(14,-7,25,4);
+      context.fillStyle='#29362d';context.fillRect(22,4,9,11);
+      context.fillStyle='#111a15';context.fillRect(44,-2,11,4);
+    } else if (model==='launcher') {
+      context.fillStyle='#293830';context.fillRect(10,-7,39,14);
+      context.strokeRect(10,-7,39,14);
+      context.fillStyle='#8b9c83';context.fillRect(15,-4,20,8);
+      context.fillStyle='#111a15';context.fillRect(45,-5,11,10);
+      context.fillStyle='#f0c76b';context.fillRect(54,-2,4,4);
+    } else if (model==='marksman') {
+      context.fillRect(9,-3.5,43,7);
+      context.fillStyle='#667366';context.fillRect(17,-6,18,3);
+      context.fillRect(24,3,6,8);
+      context.fillStyle='#111a15';context.fillRect(48,-1.5,10,3);
+    } else if (model==='special') {
+      context.fillStyle='#35453b';context.fillRect(10,-5,36,10);
+      context.fillStyle='#9cc9ad';context.fillRect(18,-3,16,2);
+      context.fillStyle='#25332a';context.fillRect(21,4,7,9);
+      context.fillStyle='#111a15';context.fillRect(43,-2,9,4);
+    } else {
+      context.fillRect(10,-4,37,8);
+      context.fillStyle='#647166';context.fillRect(17,-6,18,3);
+      context.fillStyle='#29362d';context.fillRect(23,4,7,10);
+      context.fillStyle='#111a15';context.fillRect(43,-2,10,4);
+    }
+  }
+
+  function drawParkedVehicle(context,vehicle) {
+    if (!vehicle||!vehicle.parked) return;
+    if (vehicle.explodedAt) {
+      drawThrownGrenade(context,{x:vehicle.x,y:vehicle.y,detonatedAt:vehicle.explodedAt,
+        expiresAt:vehicle.cleanupAt,radius:170});
+      return;
+    }
+    if (vehicle.type===transportType) return;
+    const x=Number(vehicle.x),y=Number(vehicle.y);
+    const remaining=Math.max(0,Math.ceil((Number(vehicle.expiresAt)-Date.now())/1000));
+    drawVehicleSprite(context,vehicle.type,x,y,vehicles[vehicle.type]?.color||'#8da1a4',
+      vehicle.team==='vortex'?'#9fc4ff':'#ffabb1',vehicle.facingAngle);
+    context.fillStyle='#edf5ef';context.font='bold 11px system-ui';context.textAlign='center';
+    context.fillText((vehicles[vehicle.type]?.name||'Vehicle')+' · '+remaining+'s',x,y+38);
+  }
+
+  function transportGunnerKeys(vehicle) {
+    return Array.isArray(vehicle&&vehicle.passengers)
+      ?vehicle.passengers.filter(key=>key!==vehicle.pilot).slice(0,4):[];
+  }
+
+  function transportGunnerPosition(vehicle,key) {
+    const seat=transportGunnerKeys(vehicle).indexOf(key);
+    if (seat<0) return null;
+    const scale=1+Math.max(0,Math.min(100,Number(vehicle.altitude)||0))/100;
+    return {x:Number(vehicle.x)+(seat%2===0?-18:18)*scale,
+      y:Number(vehicle.y)+(seat<2?-24:24)*scale};
+  }
+
+  async function updateTransportPosition(vehicle,position,altitudeInput=0) {
     if (!vehicle||Date.now()-Number(updateTransportPosition.lastWriteAt||0)<140) return;
     const now=Date.now();
     updateTransportPosition.lastWriteAt=now;
     let updated;
     await updateWar('vehicles/'+vehicle.id,current=>{
       if (!current||current.pilot!==playerKey) return current;
-      const lift=Math.min(100,Number(current.altitude||0)+Math.max(0,now-Number(current.lastMovedAt||now))/1000*12);
+      const elapsed=Math.max(0,now-Number(current.lastMovedAt||now))/1000;
+      const moving=Math.hypot(position.x-Number(current.x),position.y-Number(current.y))>2;
+      const liftRate=altitudeInput?altitudeInput*30:moving?12:0;
+      const lift=Math.max(0,Math.min(100,Number(current.altitude||0)+elapsed*liftRate));
       updated={...current,x:position.x,y:position.y,altitude:lift,lastMovedAt:now};
       return updated;
     });
@@ -1137,12 +1581,28 @@
 
   function drawSmoke(context,smoke) {
     if (!smoke||Number(smoke.expiresAt)<=Date.now()) return;
-    const alpha=Math.min(.55,(Number(smoke.expiresAt)-Date.now())/2500*.55);
-    const gradient=context.createRadialGradient(smoke.x,smoke.y,20,smoke.x,smoke.y,Number(smoke.radius||190));
-    gradient.addColorStop(0,'rgba(190,200,194,'+alpha+')');
-    gradient.addColorStop(1,'rgba(150,164,157,0)');
+    const radius=Number(smoke.radius)||260;
+    const fade=Math.min(1,(Number(smoke.expiresAt)-Date.now())/2500);
+    const gradient=context.createRadialGradient(smoke.x,smoke.y,radius*.06,smoke.x,smoke.y,radius);
+    gradient.addColorStop(0,'rgba(29,35,31,.98)');
+    gradient.addColorStop(.52,'rgba(39,46,41,.96)');
+    gradient.addColorStop(.84,'rgba(49,57,51,.82)');
+    gradient.addColorStop(1,'rgba(57,66,59,.12)');
+    context.save();
+    context.globalAlpha=.94*fade;
     context.fillStyle=gradient;
-    context.beginPath();context.arc(smoke.x,smoke.y,Number(smoke.radius||190),0,Math.PI*2);context.fill();
+    context.beginPath();context.arc(smoke.x,smoke.y,radius,0,Math.PI*2);context.fill();
+    context.globalAlpha=.35*fade;
+    context.fillStyle='#343c36';
+    for (let puff=0;puff<5;puff++) {
+      const angle=puff*Math.PI*2/5+Number(smoke.seed||0);
+      const offset=radius*.38;
+      context.beginPath();
+      context.ellipse(smoke.x+Math.cos(angle)*offset,smoke.y+Math.sin(angle)*offset,
+        radius*.42,radius*.34,angle,0,Math.PI*2);
+      context.fill();
+    }
+    context.restore();
   }
 
   function drawClaymore(context,claymore) {
@@ -1150,18 +1610,62 @@
     context.save();
     context.translate(Number(claymore.x),Number(claymore.y));
     context.rotate(Number(claymore.angle)||0);
-    context.fillStyle='#db8067';
-    context.beginPath();context.moveTo(0,0);context.lineTo(115,-65);context.lineTo(115,65);context.closePath();context.fill();
-    context.fillStyle='#161d18';
-    context.fillRect(-9,-12,18,24);
+    context.fillStyle='rgba(231,186,83,.11)';
+    context.beginPath();context.moveTo(16,0);context.arc(0,0,230,-Math.PI/3,Math.PI/3);context.closePath();context.fill();
+    context.strokeStyle='rgba(238,194,94,.45)';context.lineWidth=2;context.setLineDash([9,8]);
+    context.beginPath();context.moveTo(30,0);context.lineTo(212,0);context.stroke();context.setLineDash([]);
+    context.fillStyle='rgba(4,7,5,.55)';
+    context.beginPath();context.ellipse(-2,4,29,22,0,0,Math.PI*2);context.fill();
+    context.fillStyle='#29352d';context.strokeStyle='#b8c3b5';context.lineWidth=2;
+    context.fillRect(-25,-17,43,34);context.strokeRect(-25,-17,43,34);
+    context.fillStyle='#475747';context.fillRect(-19,-12,31,24);
+    context.strokeStyle='#18211b';context.lineWidth=2;
+    for (const offset of [-7,0,7]) {
+      context.beginPath();context.moveTo(-16,offset);context.lineTo(9,offset);context.stroke();
+    }
+    context.fillStyle='#d6bd79';
+    context.beginPath();context.moveTo(18,-13);context.lineTo(29,-9);context.lineTo(29,9);context.lineTo(18,13);context.closePath();context.fill();
+    context.strokeStyle='#303a31';context.lineWidth=2;context.stroke();
+    context.fillStyle='#f07858';
+    context.beginPath();context.arc(24,0,3.5,0,Math.PI*2);context.fill();
+    context.fillStyle='#d9e0c7';
+    for (const sensorY of [-8,0,8]) {
+      context.beginPath();context.arc(18,sensorY,2,0,Math.PI*2);context.fill();
+    }
+    context.fillStyle='#141a16';
+    context.fillRect(-14,-21,18,4);context.fillRect(-14,17,18,4);
     context.restore();
   }
 
   function drawThrownGrenade(context,grenade) {
     if (!grenade||Number(grenade.expiresAt)<=Date.now()) return;
-    const remaining=Math.max(0,Number(grenade.expiresAt)-Date.now());
+    const now=Date.now();
+    if (grenade.detonatedAt) {
+      const progress=Math.min(1,(now-Number(grenade.detonatedAt))/650);
+      const radius=Number(grenade.radius)||155;
+      context.save();
+      context.globalAlpha=1-progress;
+      context.fillStyle='rgba(242,174,73,.28)';
+      context.beginPath();context.arc(Number(grenade.x),Number(grenade.y),radius*progress,0,Math.PI*2);context.fill();
+      context.strokeStyle='#ffd36c';context.lineWidth=8*(1-progress)+2;
+      context.beginPath();context.arc(Number(grenade.x),Number(grenade.y),radius*progress,0,Math.PI*2);context.stroke();
+      context.restore();
+      return;
+    }
+    const startX=Number(grenade.startX??grenade.x),startY=Number(grenade.startY??grenade.y);
+    const endX=Number(grenade.targetX??grenade.x),endY=Number(grenade.targetY??grenade.y);
+    const duration=Math.max(1,Number(grenade.detonateAt)-Number(grenade.createdAt));
+    const progress=Math.max(0,Math.min(1,(now-Number(grenade.createdAt))/duration));
+    const x=startX+(endX-startX)*progress;
+    const groundY=startY+(endY-startY)*progress;
+    const height=Math.sin(progress*Math.PI)*Math.min(90,Math.hypot(endX-startX,endY-startY)*.16);
+    const y=groundY-height;
+    context.fillStyle='rgba(5,8,6,.42)';
+    context.beginPath();context.ellipse(x,groundY,9,5,0,0,Math.PI*2);context.fill();
     context.fillStyle='#e5bd55';
-    context.beginPath();context.arc(Number(grenade.x),Number(grenade.y),8+Math.sin(remaining/45)*2,0,Math.PI*2);context.fill();
+    context.strokeStyle='#fff1ad';
+    context.lineWidth=2;
+    context.beginPath();context.arc(x,y,7+Math.sin(now/45)*1.5,0,Math.PI*2);context.fill();context.stroke();
   }
 
   function drawLootBox(context,crate) {
@@ -1207,73 +1711,131 @@
 
   function drawPlayer(context,player,isSelf) {
     const color = player.downed?'#e9c967':player.team === 'vortex' ? '#70a6ff' : '#ff7887';
+    const x=Number(player.x),y=Number(player.y);
     context.beginPath();
     if (vehicles[player.vehicle]) {
-      context.fillStyle=vehicles[player.vehicle].color;
-      context.fillRect(Number(player.x)-29,Number(player.y)-20,58,40);
-      context.strokeStyle=isSelf?'#fff':'#111815';
-      context.lineWidth=4;
-      context.strokeRect(Number(player.x)-29,Number(player.y)-20,58,40);
-      if (player.vehicle==='tank') {
-        context.fillStyle='#344336';
-        context.fillRect(Number(player.x)-26,Number(player.y)-24,52,6);
-        context.fillRect(Number(player.x)-26,Number(player.y)+18,52,6);
-        context.fillStyle='#85967c';
-        context.beginPath();context.arc(Number(player.x),Number(player.y),12,0,Math.PI*2);context.fill();
-        context.strokeStyle='#344336';context.lineWidth=6;
-        context.beginPath();context.moveTo(Number(player.x),Number(player.y));context.lineTo(Number(player.x)+30,Number(player.y));context.stroke();
-      } else if (player.vehicle==='anti_air') {
-        context.fillStyle='#43595d';
-        context.beginPath();context.arc(Number(player.x),Number(player.y),13,0,Math.PI*2);context.fill();
-        context.strokeStyle='#d0dcda';context.lineWidth=3;
-        context.beginPath();context.moveTo(Number(player.x)+3,Number(player.y)-4);context.lineTo(Number(player.x)+31,Number(player.y)-19);
-        context.moveTo(Number(player.x)+3,Number(player.y)+4);context.lineTo(Number(player.x)+31,Number(player.y)+19);context.stroke();
-      }
+      drawVehicleSprite(context,player.vehicle,x,y,vehicles[player.vehicle].color,
+        isSelf?'#fff':player.team==='vortex'?'#9fc4ff':'#ffabb1',player.facingAngle);
       context.fillStyle='#101713';
       context.font='bold 10px system-ui';
       context.textAlign='center';
       const labels={scout_bike:'BIKE',assault_rover:'ROVER',tank:'TANK',anti_air:'ANTI-AIR'};
-      context.fillText(labels[player.vehicle]||'VEHICLE',Number(player.x),Number(player.y)+4);
+      context.fillText(labels[player.vehicle]||'VEHICLE',x,y+4);
     } else {
-      context.arc(Number(player.x),Number(player.y),isSelf ? 29 : 25,0,Math.PI*2);
-      context.fillStyle = color;
-      context.fill();
-      context.strokeStyle = isSelf ? '#ffffff' : '#111815';
-      context.lineWidth = isSelf ? 6 : 4;
-      context.stroke();
+      const angle=isSelf&&aimActive?Math.atan2(aim.y-y,aim.x-x):Number(player.facingAngle)||0;
+      const selectedSlot=player.activeWeaponSlot==='secondary'&&weapons[player.secondary]?.slot==='secondary'
+        ?'secondary':'primary';
+      const weapon=effectiveWeapon(player,selectedSlot);
+      const distance=isSelf&&aimActive?Math.min(weapon.range,Math.hypot(aim.x-x,aim.y-y)):weapon.range;
+      const targetX=x+Math.cos(angle)*distance,targetY=y+Math.sin(angle)*distance;
+      const laser=Array.isArray(player.attachments)?player.attachments.find(id=>id==='laser_red'||id==='laser_tac'):'';
+      if (laser&&distance>38) {
+        const muzzleX=x+Math.cos(angle)*39,muzzleY=y+Math.sin(angle)*39;
+        context.save();
+        context.globalAlpha=.72;
+        context.strokeStyle=laser==='laser_red'?'#ff5b62':'#9affbf';
+        context.shadowColor=context.strokeStyle;
+        context.shadowBlur=8;
+        context.lineWidth=2;
+        context.beginPath();context.moveTo(muzzleX,muzzleY);context.lineTo(targetX,targetY);context.stroke();
+        context.shadowBlur=0;
+        context.fillStyle=context.strokeStyle;
+        context.beginPath();context.arc(targetX,targetY,4,0,Math.PI*2);context.fill();
+        context.restore();
+      }
+      if (isSelf&&aimActive) {
+        context.save();
+        context.strokeStyle='#f4f7dc';
+        context.globalAlpha=.82;
+        context.lineWidth=2;
+        context.beginPath();context.arc(targetX,targetY,10,0,Math.PI*2);
+        context.moveTo(targetX-16,targetY);context.lineTo(targetX-6,targetY);
+        context.moveTo(targetX+6,targetY);context.lineTo(targetX+16,targetY);
+        context.moveTo(targetX,targetY-16);context.lineTo(targetX,targetY-6);
+        context.moveTo(targetX,targetY+6);context.lineTo(targetX,targetY+16);
+        context.stroke();
+        context.restore();
+      }
+      context.save();
+      context.translate(x,y);
+      context.rotate(angle);
+      if (isSelf) {
+        context.strokeStyle='#ffffff';context.lineWidth=2;
+        context.beginPath();context.arc(0,0,34,0,Math.PI*2);context.stroke();
+      }
+      context.lineCap='round';
+      context.strokeStyle='#17211b';context.lineWidth=7;
+      context.beginPath();context.moveTo(-5,-6);context.lineTo(-16,-13);context.moveTo(-5,6);context.lineTo(-16,13);context.stroke();
+      context.fillStyle='#25342b';
+      context.fillRect(-19,-9,11,18);
+      context.fillStyle=player.downed?'#776843':player.team==='vortex'?'#4774a8':'#9d4c57';
+      context.beginPath();context.ellipse(-1,0,14,11,0,0,Math.PI*2);context.fill();
+      context.strokeStyle='#b9c4b9';context.lineWidth=2;context.stroke();
+      context.fillStyle=player.team==='vortex'?'#92c5ff':'#ffabb1';
+      context.beginPath();context.arc(7,-8,4,0,Math.PI*2);context.arc(7,8,4,0,Math.PI*2);context.fill();
+      context.fillStyle='#798b7e';
+      context.beginPath();context.arc(10,0,8,0,Math.PI*2);context.fill();
+      context.strokeStyle='#d4dfd6';context.lineWidth=2;context.stroke();
+      drawHeldWeapon(context,weapon);
+      context.restore();
     }
     context.fillStyle = '#101713';
     context.font = 'bold 20px system-ui';
     context.textAlign = 'center';
-    context.fillText(String(player.name || '?').slice(0,8),Number(player.x),Number(player.y)+3);
+    context.fillText(String(player.name || '?').slice(0,8),x,y+3);
     context.fillStyle = '#070b09';
-    context.fillRect(Number(player.x)-44,Number(player.y)-54,88,10);
+    context.fillRect(x-44,y-54,88,10);
     context.fillStyle = player.downed?'#e9c967':Number(player.hp) > 50 ? '#65e6ad' : '#ff7782';
-    context.fillRect(Number(player.x)-44,Number(player.y)-54,88*Math.max(0,Number(player.hp))/100,10);
+    context.fillRect(x-44,y-54,88*Math.max(0,Number(player.hp))/100,10);
   }
 
   function updateStats(players) {
     const player = warState.players[playerKey];
     if (!player) return;
-    const weapon=vehicleWeapons[player.vehicle]||effectiveWeapon(player);
-    const ammo=vehicleWeapons[player.vehicle]?Number(player.vehicleAmmo||0):Number(player.ammo||0);
+    const weaponSlot=player.activeWeaponSlot==='secondary'&&weapons[player.secondary]?.slot==='secondary'
+      ?'secondary':'primary';
+    const weapon=vehicleWeapons[player.vehicle]||effectiveWeapon(player,weaponSlot);
+    const ammo=vehicleWeapons[player.vehicle]?Number(player.vehicleAmmo||0):
+      Number(player[weaponSlot==='secondary'?'secondaryAmmo':'ammo']||0);
     const progress=accountData && accountData.dropzone?normalizeProgress(accountData.dropzone):normalizeProgress(null);
     const markup = '<span class="nexus-war-vortex">Vortex resources: ' +
       Number(warState.economy.vortex.resources || 0) + '</span><span class="nexus-war-krypton">Krypton resources: ' +
       Number(warState.economy.krypton.resources || 0) + '</span><span>Players online: ' + players.length +
       '</span><span>K / D: ' + Number(player.kills || 0) + ' / ' + Number(player.deaths || 0) +
-      '</span><span>Health: ' + Math.ceil(Number(player.hp)) + '</span><span>Armor: '+
-      Math.ceil(Number(player.armorHp||0))+' / 150 · '+Number(player.armorPlates||0)+' plates ready'+
-      (player.downed?' · DOWNED':'')+'</span><span>'+(vehicleWeapons[player.vehicle]?weapon.name+' ammo':'Ammo')+': ' +
+      '</span><span>'+(vehicleWeapons[player.vehicle]?weapon.name+' ammo':
+        weaponSlot==='secondary'?'Secondary ammo':'Primary ammo')+': ' +
       ammo + ' / ' + weapon.mag + '</span><span>Level ' + progress.level +
       ' · XP ' + progress.xp + ' / ' + (progress.level===55?progress.xp:(progress.level*xpPerLevel)) + '</span>';
     if (markup!==lastStatsMarkup) { ui.stats.innerHTML=markup;lastStatsMarkup=markup; }
+    updateCombatHud(player);
+    updateWeaponSwitchUi(player);
     if (ui.giveUp) ui.giveUp.hidden=!player.downed;
     const next = new Date();
     next.setUTCHours(0,0,0,0);
     next.setUTCDate(next.getUTCDate() + ((8 - next.getUTCDay()) % 7 || 7));
     const label='Weekly wipe: Monday ' + next.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' UTC';
     if (label!==lastResetLabel) { ui.reset.textContent=label;lastResetLabel=label; }
+  }
+
+  function updateCombatHud(player) {
+    if (!ui||!ui.hud) return;
+    const health=Math.max(0,Math.min(100,Number(player.hp)||0));
+    const armor=Math.max(0,Math.min(150,Number(player.armorHp)||0));
+    const worn=Math.min(3,Math.ceil(armor/50));
+    const carried=Math.min(3-worn,Math.max(0,Math.floor(Number(player.armorPlates)||0)));
+    const slots=Array.from({length:3},(_,index)=>{
+      const state=index<worn?'worn':index<worn+carried?'ready':'empty';
+      const fill=state==='worn'?Math.round(Math.min(50,Math.max(0,armor-index*50))/50*100):0;
+      const label=state==='worn'?'Armor active':state==='ready'?'Armor plate ready':'Empty plate slot';
+      return '<span class="nexus-war-plate-slot '+state+'" aria-label="'+label+'"><i style="height:'+fill+'%"></i></span>';
+    }).join('');
+    const markup='<div class="nexus-war-hud-vitals"><div class="nexus-war-hud-heading">'+
+      '<span>VITALS</span><strong class="'+(health<=30?'critical':'')+'">'+Math.ceil(health)+'<small> / 100</small></strong></div>'+
+      '<div class="nexus-war-health-track"><i class="'+(health<=30?'critical':'')+'" style="width:'+health+'%"></i></div>'+
+      (player.downed?'<span class="nexus-war-downed">DOWNED</span>':'')+'</div>'+
+      '<div class="nexus-war-hud-armor"><div class="nexus-war-hud-heading"><span>ARMOR</span><strong>'+Math.ceil(armor)+'<small> / 150</small></strong></div>'+
+      '<div class="nexus-war-plate-slots">'+slots+'</div><small class="nexus-war-ready-plates">'+carried+' READY</small></div>';
+    if (markup!==lastHudMarkup) { ui.hud.innerHTML=markup;lastHudMarkup=markup; }
   }
 
   function onPointerMove(event) {
@@ -1287,7 +1849,7 @@
   }
 
   function onPointerDown(event) {
-    if (event.button !== 0) return;
+    if (event.button !== 0||paused) return;
     onPointerMove(event);
     pointerDown = true;
     ui.canvas.setPointerCapture(event.pointerId);
@@ -1326,21 +1888,70 @@
     else keys.delete(({up:'w',down:'s',left:'a',right:'d'})[control.dataset.warMove]);
   }
 
+  async function switchWeaponSlot(slot) {
+    const player=warState&&warState.players[playerKey];
+    if (!player||!['primary','secondary'].includes(slot)) return;
+    if (slot==='secondary'&&weapons[player.secondary]?.slot!=='secondary') {
+      setStatus('Equip a pistol or explosive weapon in the secondary slot first.',true);
+      return;
+    }
+    if (slot===player.activeWeaponSlot) return;
+    try {
+      playSound('switch');
+      await mutatePlayer(current=>current?{...current,activeWeaponSlot:slot,lastSeen:Date.now()}:current);
+      updateWeaponSwitchUi();
+      draw();
+    } catch(error) { setStatus(error.message||'Could not switch weapons.',true); }
+  }
+
+  function updateWeaponSwitchUi(player=warState&&warState.players[playerKey]) {
+    if (!ui?.weaponSwitch||!player) return;
+    const vehicleWeapon=vehicleWeapons[player.vehicle];
+    ui.weaponSwitch.disabled=!!vehicleWeapon;
+    ui.weaponSwitch.textContent=vehicleWeapon?vehicleWeapon.name+' active':
+      player.activeWeaponSlot==='secondary'?'Secondary (2) · switch to Primary (1)':'Primary (1) · switch to Secondary (2)';
+  }
+
+  async function toggleDroneControl() {
+    if (!warState?.drones?.[playerKey]) { setStatus('Launch a drone before taking control.',true);return; }
+    droneControlled=!droneControlled;
+    playSound('drone');
+    updateWar('drones/'+playerKey,current=>current?{...current,manual:droneControlled}:current)
+      .catch(error=>setStatus(error.message||'Could not change drone control.',true));
+    setStatus(droneControlled?'Manual drone control active. WASD steers; the operator stays in place.':'Drone released to continue on its current heading.');
+  }
+
   function onKeyDown(event) {
     const key = event.key.toLowerCase();
     const target=event.target instanceof Element?event.target:null;
+    if (key==='escape') { event.preventDefault();togglePause();return; }
     if (target&&target.closest('input,textarea,[contenteditable="true"]')) return;
     if (target instanceof HTMLSelectElement&&key!=='v') return;
-    if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright','r','e','v','q','f','g','x','c','z'].includes(key)) event.preventDefault();
+    if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright','r','e','v','q','f','g','x','c','z','1','2','shift'].includes(key)) event.preventDefault();
     if (event.repeat&&!['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright'].includes(key)) return;
+    if (paused) return;
+    if (key==='shift') { toggleDroneControl();return; }
     if (key==='g'&&warState&&warState.players[playerKey]?.downed&&!giveUpInterval) {
       giveUpInterval=window.setTimeout(()=>{giveUp();giveUpInterval=0;},1500);
     }
     keys.add(key);
+    if (key==='1'||key==='2') {
+      switchWeaponSlot(key==='1'?'primary':'secondary');
+      return;
+    }
+    const currentTransport=warState&&warState.players[playerKey]?.transportId&&
+      warState.vehicles[warState.players[playerKey].transportId];
+    const isTransportPilot=currentTransport&&currentTransport.pilot===playerKey;
     if (key === 'r') reloadWeapon();
-    if (key === 'e') captureOrRaid();
+    if (key === 'e') {
+      if (!currentTransport) captureOrRaid();
+      else if (!isTransportPilot) keys.delete(key);
+    }
     if (key === 'v') deployVehicle();
-    if (key === 'q') enterOrExitHouse();
+    if (key === 'q') {
+      if (!currentTransport) enterOrExitHouse();
+      else if (!isTransportPilot) keys.delete(key);
+    }
     if (key === 'f') reviveNearby();
     if (key === 'x') useTactical();
     if (key === 'c') useLethal();
@@ -1359,31 +1970,45 @@
 
   async function fireWeapon() {
     const now = Date.now();
-    if (destroyed || now - lastShot < 70 || reloading) return;
+    if (destroyed||paused||now-lastShot<70||reloading) return;
     const shooter = warState && warState.players[playerKey];
     if (!shooter || shooter.respawnAt > now || shooter.hp <= 0 || shooter.downed) return;
-    const shooterPosition=shooter.transportId&&warState.vehicles[shooter.transportId]
-      ?warState.vehicles[shooter.transportId]:localPosition||shooter;
+    const transport=shooter.transportId&&warState.vehicles[shooter.transportId];
+    const gunnerPosition=transport&&transportGunnerPosition(transport,playerKey);
+    if (transport&&transport.pilot!==playerKey&&!gunnerPosition) {
+      setStatus('The four helicopter side-gunner seats are occupied.');
+      return;
+    }
+    const shooterPosition=transport?gunnerPosition||transport:localPosition||shooter;
     if (isInOwnSafeZone(shooter.team,Number(shooterPosition.x),Number(shooterPosition.y))) {
       setStatus('Weapons are disabled inside your team safe zone.');
       return;
     }
-    const weapon=vehicleWeapons[shooter.vehicle]||effectiveWeapon(shooter);
-    const ammoField=vehicleWeapons[shooter.vehicle]?'vehicleAmmo':'ammo';
+    const vehicleWeapon=vehicleWeapons[shooter.vehicle];
+    const weaponSlot=vehicleWeapon?null:
+      shooter.activeWeaponSlot==='secondary'&&weapons[shooter.secondary]?.slot==='secondary'?'secondary':'primary';
+    const weapon=vehicleWeapon||effectiveWeapon(shooter,weaponSlot);
+    const ammoField=vehicleWeapon?'vehicleAmmo':weaponSlot==='secondary'?'secondaryAmmo':'ammo';
+    const weaponField=weaponSlot==='secondary'?'secondary':'weapon';
     if (now - lastShot < weapon.rate) return;
     if (Number(shooter[ammoField]||0) <= 0) { setStatus('Magazine empty. Press R to reload.'); return; }
     lastShot = now;
+    playSound('shot');
     let fired;
     try {
       fired = await mutatePlayer(current => {
-        if (!current||current.vehicle!==shooter.vehicle||Number(current[ammoField]||0)<=0||
+        if (!current||current.vehicle!==shooter.vehicle||
+          (weaponSlot&&(current[weaponField]!==shooter[weaponField]||
+            current.activeWeaponSlot!==shooter.activeWeaponSlot))||
+          Number(current[ammoField]||0)<=0||
             Date.now()-Number(current.lastShotAt||0)<weapon.rate-20) return current;
-        return {...current,[ammoField]:Number(current[ammoField])-1,lastShotAt:Date.now(),lastSeen:Date.now()};
+        return {...current,[ammoField]:Number(current[ammoField])-1,
+          facingAngle:Math.atan2(aim.y-shooterPosition.y,aim.x-shooterPosition.x),
+          lastShotAt:Date.now(),lastSeen:Date.now()};
       });
     } catch (error) { setStatus(error.message,true); return; }
     if (!fired||fired[ammoField]!==Number(shooter[ammoField])-1) return;
-    const transport=shooter.transportId&&warState.vehicles[shooter.transportId];
-    const origin = {...shooter,...(transport?{x:transport.x,y:transport.y}:localPosition||{})};
+    const origin = {...shooter,x:Number(shooterPosition.x),y:Number(shooterPosition.y)};
     const angle = Math.atan2(aim.y-origin.y,aim.x-origin.x) + (Math.random()-.5)*weapon.spread;
     const end = {
       x:Math.max(0,Math.min(worldWidth,origin.x+Math.cos(angle)*weapon.range)),
@@ -1397,10 +2022,22 @@
     if (baseHit&&(!impact||baseHit.distance<impact.distance)) impact=baseHit;
     traces.push({x1:origin.x,y1:origin.y,x2:impact ? impact.x : end.x,y2:impact ? impact.y : end.y,time:Date.now(),color:shooter.team === 'vortex' ? '#80b7ff' : '#ff8792'});
     try {
-      if (weapon.radius && baseHit && impact===baseHit) {
-        await raidBase(baseHit.team,Math.round(weapon.damage*.7),shooter.team);
-        for (const enemy of Object.values(warState.players)) {
-          if (enemy.team !== shooter.team&&!enemy.transportId&&Math.hypot(enemy.x-baseHit.x,enemy.y-baseHit.y) < weapon.radius) await hitPlayer(enemy,Math.round(weapon.damage*.65),shooter);
+      if (weapon.radius) {
+        const center=impact?{x:impact.x,y:impact.y}:end;
+        const explosionId='impact_'+playerKey+'_'+Date.now();
+        await updateWar('grenades/'+explosionId,()=>({x:center.x,y:center.y,
+          detonatedAt:Date.now(),expiresAt:Date.now()+650,radius:weapon.radius}));
+        if (baseHit&&impact===baseHit) await raidBase(baseHit.team,Math.round(weapon.damage*.7),shooter.team);
+        if (impact&&impact.turret) await hitTurret(impact.turretId,weapon.damage);
+        if (impact&&impact.transport) await hitTransport(impact.transportId,weapon.aircraftDamage||weapon.damage);
+        for (const enemy of Object.values(warState.players||{})) {
+          if (!enemy||enemy.team===shooter.team||enemy.transportId||!enemy.online) continue;
+          const distance=Math.hypot(Number(enemy.x)-center.x,Number(enemy.y)-center.y);
+          if (distance<weapon.radius) {
+            const damage=distance<45?weapon.damage:
+              Math.max(1,Math.round(weapon.damage*.8*(1-distance/weapon.radius)));
+            await hitPlayer(enemy,damage,shooter);
+          }
         }
       } else if (impact && impact.target) {
         await hitPlayer(impact.target,weapon.damage,shooter);
@@ -1546,8 +2183,8 @@
       ['stim','Stim · '+Number(player.stimCharges||0)]];
     const lethal=[['grenade','Frag grenade · '+Number(player.grenadeCharges||0)],
       ['claymore','Claymore · '+Number(player.claymoreCharges||0)]];
-    if (Number(player.turretCharges||0)>0) tactical.push(['turret','Sentry turret · '+player.turretCharges]);
     if (Number(player.droneCharges||0)>0) lethal.push(['drone','Kamikaze drone · '+player.droneCharges]);
+    if (Number(player.turretCharges||0)>0) lethal.push(['turret','Sentry turret · '+player.turretCharges]);
     return {tactical,lethal};
   }
 
@@ -1594,7 +2231,7 @@
         const distance=Math.min(500,Math.hypot(aim.x-position.x,aim.y-position.y));
         const angle=Math.atan2(aim.y-position.y,aim.x-position.x);
         const smoke={team:playerTeam,x:position.x+Math.cos(angle)*distance,
-          y:position.y+Math.sin(angle)*distance,radius:190,expiresAt:Date.now()+12000};
+          y:position.y+Math.sin(angle)*distance,radius:260,seed:Math.random()*Math.PI*2,expiresAt:Date.now()+12000};
         await updateWar('smokes',current=>({...Object.fromEntries(Object.entries(current||{})
           .filter(([,entry])=>entry&&Number(entry.expiresAt)>Date.now())),[id]:smoke}));
         setStatus('Smoke deployed. It blocks sight for 12 seconds.');
@@ -1621,6 +2258,14 @@
       if (item==='drone') {
         if (warState.drones[playerKey]) { setStatus('Your drone is already active.',true);return; }
         await launchDrone();
+      } else if (item==='turret') {
+        await consumeEquipment('lethal',item);
+        const position=localPosition||player;
+        const id=playerKey+'_'+Date.now();
+        await updateWar('turrets/'+id,()=>({owner:playerName,team:playerTeam,
+          x:Math.max(100,Math.min(worldWidth-100,position.x+(playerTeam==='vortex'?75:-75))),
+          y:position.y,hp:30,lastShotAt:0}));
+        setStatus('Sentry turret deployed.');
       } else if (item==='claymore') {
         await consumeEquipment('lethal',item);
         const position=localPosition||player;
@@ -1630,25 +2275,19 @@
           damage:90,radius:135,triggeredAt:0,createdAt:Date.now()}));
         setStatus('Claymore planted and facing your aim direction.');
       } else if (item==='grenade') {
+        playSound('throw');
         await consumeEquipment('lethal',item);
         const position=localPosition||player;
         const distance=Math.min(520,Math.hypot(aim.x-position.x,aim.y-position.y));
         const angle=Math.atan2(aim.y-position.y,aim.x-position.x);
         const impact={x:position.x+Math.cos(angle)*distance,y:position.y+Math.sin(angle)*distance};
         const id='grenade_'+playerKey+'_'+Date.now();
-        await updateWar('grenades/'+id,()=>({team:playerTeam,...impact,expiresAt:Date.now()+900}));
+        const createdAt=Date.now(),detonateAt=createdAt+900;
+        await updateWar('grenades/'+id,()=>({team:playerTeam,owner:playerName,
+          x:impact.x,y:impact.y,startX:position.x,startY:position.y,
+          targetX:impact.x,targetY:impact.y,createdAt,detonateAt,expiresAt:detonateAt+1000}));
         refreshEquipmentUi();
-        window.setTimeout(async()=>{
-          try {
-            for (const enemy of Object.values(warState&&warState.players||{})) {
-              if (!enemy||enemy.team===playerTeam||enemy.transportId||!enemy.online) continue;
-              const range=Math.hypot(Number(enemy.x)-impact.x,Number(enemy.y)-impact.y);
-              if (range<150) await hitPlayer(enemy,range<55?90:50,{name:playerName,team:playerTeam});
-            }
-            await updateWar('grenades',current=>{const next={...(current||{})};delete next[id];return next;});
-            setStatus('Frag grenade detonated.');
-          } catch(error) { setStatus(error.message||'Grenade detonation failed.',true); }
-        },900);
+        setStatus('Frag grenade thrown. Detonates in 0.9 seconds.');
       }
       refreshEquipmentUi();
     } catch(error) { setStatus(error.message||'Could not use lethal equipment.',true); }
@@ -1686,6 +2325,40 @@
     }
   }
 
+
+  async function updateGrenades() {
+    if (!warState||destroyed) return;
+    const now=Date.now();
+    for (const [id,grenade] of Object.entries(warState.grenades||{})) {
+      if (!grenade) continue;
+      if (grenade.detonatedAt) {
+        if (Number(grenade.expiresAt)>now) continue;
+        const removed=await updateWar('grenades/'+id,current=>current&&current.detonatedAt&&
+          Number(current.expiresAt)<=now?null:current);
+        if (!removed&&warState.grenades) delete warState.grenades[id];
+        continue;
+      }
+      if (!Number(grenade.detonateAt)||Number(grenade.detonateAt)>now) continue;
+      let detonated=null;
+      const updated=await updateWar('grenades/'+id,current=>{
+        detonated=null;
+        if (!current||current.detonatedAt||Number(current.detonateAt)>now) return current;
+        detonated={...current,detonatedAt:now,expiresAt:now+650,radius:155};
+        return detonated;
+      });
+      if (updated&&warState) warState.grenades[id]=updated;
+      if (!detonated) continue;
+      playSound('explosion');
+      const x=Number(detonated.targetX??detonated.x),y=Number(detonated.targetY??detonated.y);
+      for (const enemy of Object.values(warState.players||{})) {
+        if (!enemy||enemy.team===detonated.team||enemy.transportId||!enemy.online) continue;
+        const distance=Math.hypot(Number(enemy.x)-x,Number(enemy.y)-y);
+        if (distance<155) await hitPlayer(enemy,distance<55?90:50,
+          {name:detonated.owner||'Grenade',team:detonated.team});
+      }
+      if (detonated.owner===playerName) setStatus('Frag grenade detonated.');
+    }
+  }
   async function updateTurrets() {
     if (!warState||destroyed) return;
     const now=Date.now();
@@ -1841,6 +2514,42 @@
     setStatus('Drone launched. WASD steers it; toggle control to let it fly straight.');
   }
 
+  async function updateParkedVehicles() {
+    if (!warState||destroyed) return;
+    const now=Date.now();
+    for (const [id,vehicle] of Object.entries(warState.vehicles||{})) {
+      if (!vehicle||!vehicle.parked||!Number(vehicle.expiresAt)) continue;
+      if (vehicle.explodedAt) {
+        if (Number(vehicle.cleanupAt)>now) continue;
+        const removed=await updateWar('vehicles/'+id,current=>current&&current.explodedAt&&
+          Number(current.cleanupAt)<=now?null:current);
+        if (!removed&&warState.vehicles) delete warState.vehicles[id];
+        continue;
+      }
+      if (Number(vehicle.expiresAt)>now) continue;
+      let exploded=false;
+      const updated=await updateWar('vehicles/'+id,current=>{
+        exploded=false;
+        if (!current||!current.parked||current.explodedAt||Number(current.expiresAt)>now) return current;
+        exploded=true;
+        return {...current,explodedAt:now,cleanupAt:now+750};
+      });
+      if (updated&&warState) warState.vehicles[id]=updated;
+      if (!exploded) continue;
+      playSound('explosion');
+      const center={x:Number(vehicle.x),y:Number(vehicle.y)};
+      for (const player of Object.values(warState.players||{})) {
+        if (!player||!player.online||player.transportId||player.hp<=0) continue;
+        const distance=Math.hypot(Number(player.x)-center.x,Number(player.y)-center.y);
+        if (distance<175) await hitPlayer(player,distance<55?100:65,
+          {name:vehicle.owner||'Abandoned vehicle',team:vehicle.team});
+      }
+      if (playerTeam!==vehicle.team&&localPosition&&
+          Math.hypot(localPosition.x-center.x,localPosition.y-center.y)<175)
+        setStatus('An abandoned vehicle exploded nearby.',true);
+    }
+  }
+
   function updateDrone(timestamp) {
     const current=warState&&warState.drones&&warState.drones[playerKey];
     if (!current||current.hp<=0) { activeDrone=false;localDronePosition=null;return; }
@@ -1911,8 +2620,9 @@
   function resetPlayerRecord(player) {
     const team=player.team==='krypton'?'krypton':'vortex';
     const spawn=basePositions[team];
-    const initial={name:player.name,team,x:team==='vortex'?spawn.x+150:spawn.x-150,y:spawn.y,hp:100,ammo:weapons.ar_pulse.mag,
-      kills:0,deaths:0,weapon:'ar_pulse',attachments:[],loadoutSet:false,vehicle:'',vehiclePad:'',
+    const initial={name:player.name,team,x:team==='vortex'?spawn.x+150:spawn.x-150,y:spawn.y,hp:100,
+      ammo:weapons.ar_pulse.mag,secondary:'pistol_sidekick',secondaryAmmo:secondaryWeapons.pistol_sidekick.mag,
+      activeWeaponSlot:'primary',kills:0,deaths:0,weapon:'ar_pulse',attachments:[],loadoutSet:false,vehicle:'',vehiclePad:'',
       online:!!player.online,lastSeen:Date.now(),respawnAt:0,lastShotAt:0};
     return initial;
   }
@@ -1959,22 +2669,28 @@
     const player = warState && warState.players[playerKey];
     if (!player || reloading) return;
     const vehicleWeapon=vehicleWeapons[player.vehicle];
-    const weapon=vehicleWeapon||effectiveWeapon(player);
-    const ammoField=vehicleWeapon?'vehicleAmmo':'ammo';
+    const weaponSlot=vehicleWeapon?null:
+      player.activeWeaponSlot==='secondary'&&weapons[player.secondary]?.slot==='secondary'?'secondary':'primary';
+    const weapon=vehicleWeapon||effectiveWeapon(player,weaponSlot);
+    const ammoField=vehicleWeapon?'vehicleAmmo':weaponSlot==='secondary'?'secondaryAmmo':'ammo';
     if (Number(player[ammoField]||0)>=weapon.mag) return;
     reloading = true;
     ui.reload.disabled = true;
     ui.reload.textContent = 'Reloading '+(vehicleWeapon?weapon.name:'')+'…';
-    reloadEndsAt=Date.now()+weapon.reload;
+    playSound('reload');
+    reloadStartedAt=Date.now();
+    reloadEndsAt=reloadStartedAt+weapon.reload;
     reloadTimer=window.setTimeout(async () => {
       try {
         await mutatePlayer(current=>current?{
           ...current,[ammoField]:vehicleWeapons[current.vehicle]&&ammoField==='vehicleAmmo'
-            ?vehicleWeapons[current.vehicle].mag:ammoField==='ammo'?effectiveWeapon(current).mag:current[ammoField],
+            ?vehicleWeapons[current.vehicle].mag:weaponSlot?effectiveWeapon(current,weaponSlot).mag:effectiveWeapon(current,'primary').mag,
           lastSeen:Date.now()
         }:current);
       } catch (error) { setStatus(error.message,true); }
-      reloading=false;reloadEndsAt=0;reloadTimer=0;
+      reloading=false;reloadEndsAt=0;reloadStartedAt=0;reloadTimer=0;
+      if (ui.reloadTimer) ui.reloadTimer.hidden=true;
+      if (ui.reloadProgress) ui.reloadProgress.style.width='0%';
       if (!destroyed) { ui.reload.disabled=false;ui.reload.textContent='Reload (R)';ui.reloadTimer.textContent=''; }
     },weapon.reload);
   }
@@ -2008,6 +2724,26 @@
     setStatus('Press E beside a marked loot crate to open it, capture a relay, or return to base to deploy a vehicle.');
   }
 
+  async function parkGroundVehicle(player,position) {
+    const id='parked_'+safeUserKey(playerName)+'_'+Date.now();
+    const now=Date.now();
+    const parked={id,type:player.vehicle,team:playerTeam,owner:playerName,
+      x:Number(position.x),y:Number(position.y),padId:player.vehiclePad||'',
+      facingAngle:Number(player.facingAngle)||0,parked:true,parkedAt:now,expiresAt:now+180_000};
+    await updateWar('vehicles/'+id,()=>parked);
+    if (warState) warState.vehicles[id]=parked;
+    try {
+      await mutatePlayer(current=>current?{...current,vehicle:'',vehiclePad:'',lastSeen:Date.now()}:current);
+    } catch(error) {
+      await updateWar('vehicles/'+id,()=>null).catch(()=>{});
+      if (warState&&warState.vehicles) delete warState.vehicles[id];
+      throw error;
+    }
+    localPosition={x:Number(position.x),y:Number(position.y)};
+    movementVelocity={x:0,y:0};
+    setStatus('Dismounted. This vehicle will remain for 3 minutes, then explode.');
+  }
+
   async function deployVehicle() {
     if (!warState||vehicleActionBusy) return;
     vehicleActionBusy=true;
@@ -2022,44 +2758,65 @@
     }
     if (player.vehicle) {
       try {
-        await mutatePlayer(current=>current?{...current,vehicle:'',vehiclePad:'',lastSeen:Date.now()}:current);
-        setStatus('Dismounted.');
+        await parkGroundVehicle(player,position);
       } catch(error) { setStatus(error.message,true); }
       return;
     }
     const type=ui.vehicle.value;
     const atOwnBase=isInOwnSafeZone(playerTeam,Number(position.x),Number(position.y));
-    if (type!==transportType&&!atOwnBase) {
-      setStatus('Vehicles can only be deployed from the marked pads inside your team base.');
+    const insideBuilding=!!houseInside||obstacles.some(item=>(item.type==='building'||item.type==='house')&&
+      circleIntersectsRect(Number(position.x),Number(position.y),12,item));
+    if (insideBuilding) {
+      setStatus('Exit the building before deploying a vehicle.');
+      return;
+    }
+    const friendlyRelay=Object.entries(nodePositions).map(([id,node])=>({id,node,
+      distance:Math.hypot(node.x-position.x,node.y-position.y)}))
+      .filter(entry=>warState.nodes[entry.id]?.team===playerTeam&&entry.distance<=1280)
+      .sort((a,b)=>a.distance-b.distance)[0];
+    const nearbyTransport=Object.values(warState.vehicles||{}).some(transport=>transport&&
+      transport.type===transportType&&transport.team===playerTeam&&transport.hp>0&&
+      (!Number(transport.expiresAt)||Number(transport.expiresAt)>Date.now())&&
+      Math.hypot(position.x-transport.x,position.y-transport.y)<115);
+    if (type!==transportType&&!atOwnBase&&!friendlyRelay&&!nearbyTransport) {
+      setStatus('Deploy ground vehicles at your base or inside a friendly captured relay zone.');
       return;
     }
     try {
-      const padId=playerTeam+'_'+type;
-      const pad=vehiclePadPosition(playerTeam,type);
-      if (!pad) throw new Error('That vehicle has no designated base pad.');
-      if (type===transportType) {
+      const padId=atOwnBase?playerTeam+'_'+type:'relay_'+friendlyRelay?.id+'_'+type;
+      const pad=atOwnBase?vehiclePadPosition(playerTeam,type):null;
+      const spawnPosition=pad||friendlyRelay&&{x:Number(position.x),y:Number(position.y)};
+      if (!spawnPosition&&type!==transportType) throw new Error('That vehicle has no designated deployment position.');
+      if (type===transportType||nearbyTransport) {
         const nearby=Object.entries(warState.vehicles||{}).find(([,transport])=>transport&&
           transport.type===transportType&&transport.team===playerTeam&&transport.hp>0&&
+          (!Number(transport.expiresAt)||Number(transport.expiresAt)>Date.now())&&
           transport.passengers.length<10&&Math.hypot(position.x-transport.x,position.y-transport.y)<115);
         if (nearby) {
           let boarded=false;
+          let boardedRole='passenger';
           const [id]=nearby;
           await updateWar('vehicles/'+id,current=>{
             boarded=!!current&&current.team===playerTeam&&current.type===transportType&&
               current.passengers.length<10&&!current.passengers.includes(playerKey);
+            if (boarded) boardedRole=!current.pilot?'pilot':
+              transportGunnerKeys(current).length<4?'side gunner':'passenger';
             return boarded?{...current,pilot:current.pilot||playerKey,
-              passengers:[...current.passengers,playerKey]}:current;
+              passengers:[...current.passengers,playerKey],parked:false,parkedAt:0,
+              expiresAt:0,explodedAt:0,cleanupAt:0}:current;
           });
           if (!boarded) throw new Error('The helicopter is full or unavailable.');
           await mutatePlayer(current=>({...current,vehicle:transportType,transportId:id,
             vehiclePad:nearby[1].padId||'',x:nearby[1].x,y:nearby[1].y,lastSeen:Date.now()}));
           localPosition={x:nearby[1].x,y:nearby[1].y};
           localTransportId=id;
-          setStatus('Boarded transport helicopter ('+(nearby[1].passengers.length+1)+'/10). Press V to disembark.');
+          movementVelocity={x:0,y:0};
+          setStatus('Boarded transport as '+boardedRole+' ('+(nearby[1].passengers.length+1)+'/10). '+
+            (boardedRole==='pilot'?'WASD fly; hold Q to descend or E to climb. ':'')+'Press V to leave.');
           return;
         }
         if (!atOwnBase) {
-          setStatus('Approach a friendly helicopter to board, or return to your marked base pad to deploy one.');
+          setStatus('Press V within 115 units of a friendly helicopter to board; select Transport helicopter to deploy one at base.');
           return;
         }
         if (Object.values(warState.vehicles||{}).some(transport=>transport&&transport.team===playerTeam&&
@@ -2074,18 +2831,19 @@
           transportId:id,vehiclePad:padId,lastSeen:Date.now()}));
         localPosition={x:pad.x,y:pad.y};
         localTransportId=id;
-        setStatus('Transport helicopter deployed. W A S D to fly; up to 10 occupants. Press V to exit.');
+        movementVelocity={x:0,y:0};
+        setStatus('Transport helicopter deployed. WASD fly; hold Q to descend or E to climb. Up to 10 occupants; press V to leave.');
         return;
       }
       const occupied=Object.entries(warState.players||{}).some(([key,other])=>key!==playerKey&&other&&
         other.team===playerTeam&&other.vehicle===type&&other.vehiclePad===padId&&other.online&&
         Date.now()-Number(other.lastSeen||0)<20000);
       if (occupied) throw new Error('The '+vehicles[type].name+' pad is occupied by a teammate.');
-      await mutatePlayer(current=>current?{...current,x:pad.x,y:pad.y,vehicle:type,vehiclePad:padId,
+      await mutatePlayer(current=>current?{...current,x:spawnPosition.x,y:spawnPosition.y,vehicle:type,vehiclePad:padId,
         vehicleAmmo:vehicleWeapons[type]?.mag||0,lastSeen:Date.now()}:current);
-      localPosition={x:pad.x,y:pad.y};
+      localPosition={x:spawnPosition.x,y:spawnPosition.y};
       movementVelocity={x:0,y:0};
-      setStatus('Spawned '+vehicles[type].name+' at its marked base pad. Press V to dismount.');
+      setStatus('Spawned '+vehicles[type].name+' '+(atOwnBase?'at its base pad. ':'at the friendly relay. ')+'Press V to dismount.');
     } catch(error) { setStatus(error.message,true); }
     } finally { vehicleActionBusy=false; }
   }
@@ -2098,21 +2856,26 @@
     await updateWar('vehicles/'+id,current=>{
       if (!current||!Array.isArray(current.passengers)) return current;
       const passengers=current.passengers.filter(key=>key!==playerKey);
-      remaining=passengers.length?{...current,passengers,
-        pilot:current.pilot===playerKey?passengers[0]:current.pilot}:null;
-      return remaining||null;
+      const abandoned=passengers.length===0;
+      const parkedAt=abandoned?Date.now():0;
+      remaining={...current,passengers,
+        pilot:current.pilot===playerKey?passengers[0]||'':current.pilot,
+        parked:abandoned,parkedAt,expiresAt:abandoned?parkedAt+180_000:0};
+      return remaining;
     });
-    if (!remaining) await updateWar('vehicles',current=>{const next={...(current||{})};delete next[id];return next;});
-    else if (playerKey===transport?.pilot) {
+    if (remaining&&warState) warState.vehicles[id]=remaining;
+    if (remaining&&playerKey===transport?.pilot&&remaining.pilot) {
       const nextPilot=remaining.pilot;
       await updateWar('players/'+nextPilot,current=>current?{...current,x:position.x,y:position.y}:current);
     }
     await mutatePlayer(current=>current?{...current,vehicle:'',vehiclePad:'',transportId:'',
       x:position.x,y:position.y,lastSeen:Date.now()}:current);
     localPosition=position;
+    movementVelocity={x:0,y:0};
     localTransportId='';
-    if (!remaining&&warState.vehicles) delete warState.vehicles[id];
-    setStatus('Disembarked from transport.');
+    setStatus(remaining&&remaining.parked
+      ?'Helicopter parked. It will remain for 3 minutes, then explode.'
+      :'Disembarked from transport.');
   }
 
   function beginCapture(nodeId,duration) {
@@ -2120,6 +2883,12 @@
     captureTarget=nodeId;
     captureStartedAt=Date.now();
     captureDuration=duration;
+    const relayTeam=warState.nodes[nodeId]?.team;
+    const relayLabel=nodePositions[nodeId]?.label||nodeId;
+    announceWar(teamLabel(playerTeam)+' is '+(relayTeam
+      ?'taking over '+relayLabel+' from '+teamLabel(relayTeam)
+      :'capturing '+relayLabel)+'.')
+      .catch(error=>setStatus(error.message||'Could not announce the relay capture.',true));
     setStatus((duration===10_000?'Empty relay':'Enemy relay')+' capture started. Hold position for '+duration/1000+' seconds.');
     updateCaptureProgress();
     captureTimer=window.setInterval(async()=>{
@@ -2140,15 +2909,23 @@
       ui.captureProgress.hidden=true;
       try {
         let captured=false;
+        let capturedFrom='';
         const updated=await updateWar('nodes/'+id,nodeState=>{
           captured=false;
+          capturedFrom='';
           if (nodeState&&nodeState.team===playerTeam) return nodeState;
           captured=true;
+          capturedFrom=nodeState&&nodeState.team||'';
           return {team:playerTeam,owner:playerName,capturedAt:Date.now()};
         });
         if (captured&&updated.team===playerTeam) {
           await updateWar('economy/'+playerTeam,economy=>({...economy,resources:Number(economy&&economy.resources||0)+40}));
-          setStatus('Relay secured for '+teamLabel(playerTeam)+'. +40 team resources.');
+          const relayLabel=nodePositions[id].label;
+          const message=teamLabel(playerTeam)+' captured '+relayLabel+
+            (capturedFrom?' from '+teamLabel(capturedFrom):'')+'.';
+          try { await announceWar(message); }
+          catch(error) { setStatus(error.message||'Relay captured, but the announcement failed.',true); }
+          setStatus(message+' +40 team resources.');
           try { await grantXp(75,'resource relay captured'); }
           catch(error) { setStatus('Relay secured, but XP could not be saved: '+error.message,true); }
           try { await payoutSektorium(); }
@@ -2354,13 +3131,18 @@
   async function equipLoadout(event) {
     event.preventDefault();
     const weaponId=ui.weapon.value;
+    const secondaryId=ui.secondaryWeapon.value;
     const chosen=[ui.attachment1.value,ui.attachment2.value].filter(Boolean);
-    if (!weapons[weaponId] || chosen.some(id=>!attachments[id] ||
+    if (!weapons[weaponId]||weapons[weaponId].slot==='secondary'||
+        !weapons[secondaryId]||weapons[secondaryId].slot!=='secondary'||
+        chosen.some(id=>!attachments[id] ||
         !accountData.dropzone.ownedAttachments.includes(id)) || new Set(chosen).size!==chosen.length) {
-      setStatus('Choose an unlocked weapon and attachments you own.',true);return;
+      setStatus('Choose a primary, a pistol or explosive secondary, and attachments you own.',true);return;
     }
-    if (weapons[weaponId].level>accountData.dropzone.level) {
-      setStatus('Reach level '+weapons[weaponId].level+' to unlock '+weapons[weaponId].name+'.',true);return;
+    const lockedWeapon=[weaponId,secondaryId].map(id=>weapons[id])
+      .find(weapon=>weapon.level>accountData.dropzone.level);
+    if (lockedWeapon) {
+      setStatus('Reach level '+lockedWeapon.level+' to unlock '+lockedWeapon.name+'.',true);return;
     }
     try {
       const previous=warState.players[playerKey];
@@ -2369,7 +3151,7 @@
       if (!tactical.some(([id])=>id===tacticalId)||!lethal.some(([id])=>id===lethalId)) {
         throw new Error('Choose field equipment you have available.');
       }
-      const changing=previous && (previous.weapon!==weaponId ||
+      const changing=previous && (previous.weapon!==weaponId||previous.secondary!==secondaryId||
         JSON.stringify(previous.attachments||[])!==JSON.stringify(chosen)||
         previous.tactical!==tacticalId||previous.lethal!==lethalId);
       if (changing && previous && previous.loadoutSet) {
@@ -2380,9 +3162,10 @@
         });
         if (!charged) throw new Error('Your team needs 20 resources to change a field loadout.');
       }
-      await mutatePlayer(player=>({...player,weapon:weaponId,attachments:chosen,loadoutSet:true,
+      await mutatePlayer(player=>({...player,weapon:weaponId,secondary:secondaryId,attachments:chosen,loadoutSet:true,
         tactical:tacticalId,lethal:lethalId,
-        ammo:effectiveWeapon({...player,weapon:weaponId,attachments:chosen}).mag}));
+        ammo:effectiveWeapon({...player,weapon:weaponId,attachments:chosen},'primary').mag,
+        secondaryAmmo:effectiveWeapon({...player,secondary:secondaryId,attachments:chosen},'secondary').mag}));
       refreshProgressUi();
       refreshEquipmentUi();
       setStatus('Loadout equipped.');
@@ -2401,11 +3184,24 @@
     const balance=Number(accountData.balance||0);
     ui.wallet.textContent='Sektorium: '+balance.toLocaleString();
     const current=ui.weapon.value;
-    ui.weapon.innerHTML=Object.entries(weapons).map(([id,weapon])=>
+    const currentSecondary=ui.secondaryWeapon.value||warState.players[playerKey]?.secondary||'pistol_sidekick';
+    const primaryEntries=Object.entries(weapons).filter(([,weapon])=>weapon.slot!=='secondary');
+    const secondaryEntries=Object.entries(weapons).filter(([,weapon])=>weapon.slot==='secondary');
+    const arsenalSummary=container.querySelector('.nexus-war-arsenal > span');
+    if (arsenalSummary) arsenalSummary.textContent=primaryEntries.length+' primary weapons across '+
+      new Set(primaryEntries.map(([,weapon])=>weapon.type)).size+' classes · '+
+      secondaryEntries.length+' pistol / explosive secondaries';
+    ui.weapon.innerHTML=primaryEntries.map(([id,weapon])=>
       '<option value="'+id+'" '+(weapon.level>progress.level?'disabled':'')+'>'+
       weapon.type+' · '+weapon.name+(weapon.level>1?' · Level '+weapon.level:'')+
       (weapon.level>progress.level?' (locked)':'')+'</option>').join('');
-    ui.weapon.value=weapons[current] && weapons[current].level<=progress.level?current:'ar_pulse';
+    ui.weapon.value=weapons[current]&&weapons[current].slot!=='secondary'&&
+      weapons[current].level<=progress.level?current:'ar_pulse';
+    ui.secondaryWeapon.innerHTML=secondaryEntries.map(([id,weapon])=>
+      '<option value="'+id+'" '+(weapon.level>progress.level?'disabled':'')+'>'+weapon.type+' · '+weapon.name+
+      (weapon.level>1?' · Level '+weapon.level:'')+(weapon.level>progress.level?' (locked)':'')+'</option>').join('');
+    ui.secondaryWeapon.value=weapons[currentSecondary]?.slot==='secondary'&&
+      weapons[currentSecondary].level<=progress.level?currentSecondary:'pistol_sidekick';
     const attachmentOptions='<option value="">No attachment</option>'+progress.ownedAttachments.map(id=>
       '<option value="'+id+'">'+attachments[id].name+'</option>').join('');
     const attachment1=ui.attachment1.value,attachment2=ui.attachment2.value;
@@ -2450,6 +3246,12 @@
       if (purchase && container && container.contains(purchase)) buyAttachment(purchase.dataset.warBuyAttachment);
       return;
     }
+    if (button.dataset.warAction==='join-dropzone-team') chooseDropzoneTeam(button.dataset.team);
+    if (button.dataset.warAction==='pause-game') togglePause(true);
+    if (button.dataset.warAction==='resume-game') togglePause(false);
+    if (button.dataset.warAction==='audio-toggle') toggleSound();
+    if (button.dataset.warAction==='switch-weapon') switchWeaponSlot(
+      warState.players[playerKey]?.activeWeaponSlot==='secondary'?'primary':'secondary');
     if (button.dataset.warAction==='fullscreen') toggleFullscreen();
     if (button.dataset.warAction==='capture') captureOrRaid();
     if (button.dataset.warAction==='vehicle') deployVehicle();
@@ -2463,13 +3265,7 @@
     if (button.dataset.warAction==='drone-launch') useLethal();
     if (button.dataset.warAction==='use-tactical') useTactical();
     if (button.dataset.warAction==='use-lethal') useLethal();
-    if (button.dataset.warAction==='drone-toggle') {
-      if (!warState.drones[playerKey]) { setStatus('Launch a drone before taking control.',true);return; }
-      droneControlled=!droneControlled;
-      updateWar('drones/'+playerKey,current=>current?{...current,manual:droneControlled}:current)
-        .catch(error=>setStatus(error.message||'Could not change drone control.',true));
-      setStatus(droneControlled?'Manual drone control active. WASD steers; the operator stays in place.':'Drone released to continue on its current heading.');
-    }
+    if (button.dataset.warAction==='drone-toggle') toggleDroneControl();
     if (button.dataset.warAction==='give-up'&&warState.players[playerKey]?.downed) {
       setStatus('Hold the give-up button for 1.5 seconds to respawn.');
     }
@@ -2484,11 +3280,13 @@
   function updateHeader() {
     const player=warState.players[playerKey];
     ui.weapon.value=player.weapon;
+    ui.secondaryWeapon.value=player.secondary||'pistol_sidekick';
     ui.attachment1.value=(player.attachments||[])[0]||'';
     ui.attachment2.value=(player.attachments||[])[1]||'';
     ui.tactical.value=player.tactical||'smoke';
     ui.lethal.value=player.lethal||'grenade';
-    setStatus('Connected · '+teamLabel(playerTeam)+' · WASD move relative to cursor, mouse aim/fire, Z plate up, X tactical, C lethal, E capture, R reload.');
+    updateWeaponSwitchUi(player);
+    setStatus('Connected · '+teamLabel(playerTeam)+' · WASD move, mouse aim/fire, 1 primary, 2 secondary, R reload.');
     refreshProgressUi();
     refreshEquipmentUi();
     draw();
@@ -2515,10 +3313,25 @@
       '<form class="nexus-war-loadout"><label>Weapon<select data-war-weapon></select></label><label>Attachment 1<select data-war-attachment="1"></select></label><label>Attachment 2<select data-war-attachment="2"></select></label><label>Tactical<select data-war-tactical></select></label><label>Lethal<select data-war-lethal></select></label><button class="nexus-button" type="submit">Equip loadout</button><button class="nexus-button secondary" type="button" data-war-action="use-tactical">Use tactical (X)</button><button class="nexus-button secondary" type="button" data-war-action="use-lethal">Use lethal (C)</button><small class="nexus-war-equipment-help">Choose one tactical and one lethal. Stims restore up to 45 health and boost movement speed for 8 seconds. Smoke, stims, grenades, and claymores restock when you respawn. Purchased turret and drone charges appear in their respective slots.</small></form>' +
       '<section class="nexus-war-attachment-shop"><h3>Attachment shop</h3><p>Buy permanent upgrades with your Nexus Sektorium.</p><div data-war-attachment-shop></div></section>' +
       '<div class="nexus-war-arsenal"><strong>Arsenal</strong><span>Two assault rifles · two SMGs · two snipers · RPG-4 · Xenophage</span><small>Weapons unlock at levels 1–55. Eliminations earn 100 XP; new relay captures earn 75 XP. Each captured relay pays its owner 25 Sektorium and 50 XP per minute. Armor absorbs damage before health and is capped at three plates. Changing an established loadout costs 20 team resources.</small></div>';
+    const hud=document.createElement('div');
+    hud.className='nexus-war-hud';
+    hud.dataset.warHud='';
+    hud.setAttribute('aria-label','Health and armor status');
+    container.querySelector('.nexus-war-map-wrap').appendChild(hud);
+    const teamChoice=document.createElement('section');
+    teamChoice.className='nexus-war-team-choice nexus-stock-team-picker';
+    teamChoice.dataset.warTeamChoice='';
+    teamChoice.hidden=true;
+    teamChoice.innerHTML='<strong>Choose your team for this week</strong><p>Your choice resets at the weekly frontline reset.</p>'+
+      '<button class="nexus-button nexus-team-vortex" type="button" data-war-action="join-dropzone-team" data-team="vortex">Join Vortex</button>'+
+      '<button class="nexus-button nexus-team-krypton" type="button" data-war-action="join-dropzone-team" data-team="krypton">Join Krypton</button>';
+    container.querySelector('[data-war-status]').after(teamChoice);
     ui={
       canvas:container.querySelector('.nexus-war-canvas'),
       minimap:container.querySelector('[data-war-minimap]'),
       status:container.querySelector('[data-war-status]'),
+      hud:container.querySelector('[data-war-hud]'),
+      teamChoice:container.querySelector('[data-war-team-choice]'),
       stats:container.querySelector('[data-war-stats]'),
       reset:container.querySelector('[data-war-reset]'),
       progress:container.querySelector('[data-war-progression]'),
@@ -2534,12 +3347,69 @@
       vehicle:container.querySelector('[data-war-vehicle]'),
       reload:container.querySelector('[data-war-action="reload"]')
     };
+    ui.mapWrap=container.querySelector('.nexus-war-map-wrap');
     ui.fullscreen=container.querySelector('[data-war-action="fullscreen"]');
+    ui.mapWrap.appendChild(ui.fullscreen);
+    ui.pauseButton=document.createElement('button');
+    ui.pauseButton.type='button';
+    ui.pauseButton.className='nexus-button secondary';
+    ui.pauseButton.dataset.warAction='pause-game';
+    ui.pauseButton.textContent='Pause';
+    ui.pauseButton.setAttribute('aria-pressed','false');
+    container.querySelector('.nexus-war-heading-actions').appendChild(ui.pauseButton);
     ui.giveUp=container.querySelector('[data-war-action="give-up"]');
     ui.reloadTimer=container.querySelector('[data-war-reload-timer]');
-    ui.weapon.innerHTML=Object.entries(weapons).map(([id,weapon])=>'<option value="'+id+'">'+weapon.type+' · '+weapon.name+'</option>').join('');
+    ui.reloadHud=document.createElement('div');
+    ui.reloadHud.className='nexus-war-reload-hud';
+    ui.reloadHud.setAttribute('aria-live','polite');
+    ui.reloadHud.innerHTML='<span data-war-reload-progress></span>';
+    ui.reloadHud.appendChild(ui.reloadTimer);
+    ui.reloadTimer.hidden=true;
+    ui.reloadHud.hidden=true;
+    ui.reloadProgress=ui.reloadHud.querySelector('[data-war-reload-progress]');
+    ui.mapWrap.appendChild(ui.reloadHud);
+    ui.pauseMenu=document.createElement('div');
+    ui.pauseMenu.className='nexus-war-pause';
+    ui.pauseMenu.hidden=true;
+    ui.pauseMenu.innerHTML='<section class="nexus-war-pause-panel"><header><div><span>DROPZONE</span><h2>Paused</h2><p>The multiplayer frontline continues while you manage your loadout.</p></div><button class="nexus-button" type="button" data-war-action="resume-game">Resume</button></header><div class="nexus-war-pause-audio"><button class="nexus-button secondary" type="button" data-war-action="audio-toggle">Sound: on</button><label>Volume<input type="range" min="0" max="100" value="18" data-war-volume></label></div><div class="nexus-war-pause-content" data-war-pause-content></div></section>';
+    ui.soundToggle=ui.pauseMenu.querySelector('[data-war-action="audio-toggle"]');
+    ui.soundVolume=ui.pauseMenu.querySelector('[data-war-volume]');
+    ui.soundVolume.value=String(Math.round(soundVolume*100));
+    ui.soundToggle.textContent=soundEnabled?'Sound: on':'Sound: off';
+    ui.soundVolume.addEventListener('input',()=>{
+      soundVolume=Number(ui.soundVolume.value)/100;
+      soundEnabled=soundVolume>0;
+      ui.soundToggle.textContent=soundEnabled?'Sound: on':'Sound: off';
+    });
+    ui.pauseContent=ui.pauseMenu.querySelector('[data-war-pause-content]');
+    ui.mapWrap.appendChild(ui.pauseMenu);
+    const pauseSelectors=['.nexus-war-description','.nexus-war-progression','.nexus-war-wallet',
+      '.nexus-war-stats','.nexus-war-controls','.nexus-war-touch','.nexus-war-loadout',
+      '.nexus-war-attachment-shop','.nexus-war-arsenal'];
+    ui.pauseItems=pauseSelectors.map(selector=>container.querySelector(selector)).filter(Boolean)
+      .map(element=>({element,placeholder:document.createComment('pause-panel-placeholder')}));
+    ui.weapon.innerHTML=Object.entries(weapons).filter(([,weapon])=>weapon.slot!=='secondary')
+      .map(([id,weapon])=>'<option value="'+id+'">'+weapon.type+' · '+weapon.name+'</option>').join('');
     ui.attachment1.innerHTML='<option value="">No attachment</option>';
     ui.attachment2.innerHTML='<option value="">No attachment</option>';
+    ui.secondaryWeapon=document.createElement('select');
+    ui.secondaryWeapon.dataset.warSecondaryWeapon='';
+    ui.secondaryWeapon.setAttribute('aria-label','Secondary weapon');
+    const secondaryLabel=document.createElement('label');
+    secondaryLabel.append('Secondary',ui.secondaryWeapon);
+    ui.form.insertBefore(secondaryLabel,ui.attachment1.parentElement);
+    ui.weaponSwitch=document.createElement('button');
+    ui.weaponSwitch.type='button';
+    ui.weaponSwitch.className='nexus-button secondary nexus-war-weapon-switch';
+    ui.weaponSwitch.dataset.warAction='switch-weapon';
+    ui.weaponSwitch.textContent='Primary (1)';
+    container.querySelector('.nexus-war-controls').appendChild(ui.weaponSwitch);
+    const droneHint=document.createElement('span');
+    droneHint.innerHTML='<kbd>Shift</kbd> Toggle drone control';
+    container.querySelector('.nexus-war-controls').prepend(droneHint);
+    const droneToggle=container.querySelector('[data-war-action="drone-toggle"]');
+    if (droneToggle) droneToggle.textContent='Toggle drone control (Shift)';
+    updateWeaponSwitchUi();
   }
 
   async function mount(target) {
@@ -2557,7 +3427,10 @@
       teamLookup=await getPlayerTeam(playerName);
       if (!target.isConnected) return;
       if (teamLookup!=='vortex' && teamLookup!=='krypton') {
-        throw new Error('Choose Vortex or Krypton in the Nexus Shop before joining the war.');
+        container.classList.add('nexus-war-unavailable');
+        ui.teamChoice.hidden=false;
+        setStatus('Choose a team for this week to join Dropzone.');
+        return;
       }
       playerTeam=teamLookup;
       await initializeGame();
@@ -2567,8 +3440,46 @@
     }
   }
 
+  async function chooseDropzoneTeam(team) {
+    if (!ui||!ui.teamChoice||!['vortex','krypton'].includes(team)) return;
+    const buttons=[...ui.teamChoice.querySelectorAll('button')];
+    buttons.forEach(button=>{button.disabled=true;});
+    let selected=false,selectionError='';
+    const currentWeek=weekKey();
+    try {
+      await updateAccount(user=>{
+        selectionError='';
+        if (user.teamWeek!==currentWeek) {
+          user.team='';
+          user.teamWeek=currentWeek;
+        }
+        if (user.team===team) { selected=true;return; }
+        if (user.team==='vortex'||user.team==='krypton') {
+          selectionError='Your team is already set for this week.';
+          return;
+        }
+        user.team=team;
+        user.teamWeek=currentWeek;
+        selected=true;
+      });
+      if (selectionError) throw new Error(selectionError);
+      if (!selected) throw new Error('Could not save your team choice. Try again.');
+      playerTeam=team;
+      teamLookup=team;
+      ui.teamChoice.hidden=true;
+      container.classList.remove('nexus-war-unavailable');
+      setStatus('Joining '+teamLabel(team)+' this week…');
+      await initializeGame();
+    } catch(error) {
+      container.classList.add('nexus-war-unavailable');
+      setStatus(error.message||'Could not choose a Dropzone team.',true);
+      buttons.forEach(button=>{button.disabled=false;});
+    }
+  }
+
   function cleanup() {
     destroyed=true;
+    paused=false;
     if (animation) cancelAnimationFrame(animation);
     if (incomeTimer) clearInterval(incomeTimer);
     if (turretTimer) clearInterval(turretTimer);
@@ -2597,6 +3508,7 @@
     lootTimer=0;
     reloadTimer=0;
     reloadEndsAt=0;
+    reloadStartedAt=0;
     giveUpInterval=0;
     captureTimer=0;
     heartbeatTimer=0;
@@ -2609,6 +3521,10 @@
     localTransportId='';
     localDronePosition=null;
     lastDroneWriteAt=0;
+    if (audioContext) {
+      audioContext.close().catch(()=>{});
+      audioContext=null;
+    }
     activeDrone=false;
     droneControlled=true;
     movementVelocity={x:0,y:0};
