@@ -31,15 +31,15 @@
     special_xeno:{name:'Xenophage',type:'Special',damage:38,rate:370,mag:18,range:600,spread:.025,reload:1900,level:55}
   };
   const weaponProfiles={
-    'Assault rifle':{damage:24,rate:175,mag:30,range:700,spread:.032,reload:1450,model:'rifle'},
-    'Submachine gun':{damage:14,rate:90,mag:36,range:460,spread:.07,reload:1350,model:'smg'},
-    'Light machine gun':{damage:19,rate:115,mag:65,range:750,spread:.06,reload:2600,model:'lmg'},
-    'Sniper rifle':{damage:86,rate:950,mag:5,range:1150,spread:.004,reload:2400,model:'sniper'},
-    'Shotgun':{damage:78,rate:780,mag:8,range:340,spread:.19,reload:2300,model:'shotgun'},
-    'Marksman rifle':{damage:48,rate:380,mag:14,range:900,spread:.012,reload:1800,model:'marksman'},
-    'Special':{damage:40,rate:400,mag:24,range:700,spread:.035,reload:1900,model:'special'},
-    'Explosive':{damage:105,rate:1250,mag:2,range:850,spread:.012,reload:3000,radius:135,model:'launcher'},
-    'Pistol':{damage:30,rate:260,mag:15,range:520,spread:.025,reload:1250,model:'pistol'}
+    'Assault rifle':{damage:24,rate:175,mag:30,range:700,spread:.032,recoil:.018,reload:1450,model:'rifle'},
+    'Submachine gun':{damage:14,rate:90,mag:36,range:460,spread:.07,recoil:.026,reload:1350,model:'smg'},
+    'Light machine gun':{damage:19,rate:115,mag:65,range:750,spread:.06,recoil:.034,reload:2600,model:'lmg'},
+    'Sniper rifle':{damage:86,rate:950,mag:5,range:1150,spread:.004,recoil:.032,reload:2400,model:'sniper'},
+    'Shotgun':{damage:78,rate:780,mag:8,range:340,spread:.19,recoil:.045,reload:2300,model:'shotgun'},
+    'Marksman rifle':{damage:48,rate:380,mag:14,range:900,spread:.012,recoil:.024,reload:1800,model:'marksman'},
+    'Special':{damage:40,rate:400,mag:24,range:700,spread:.035,recoil:.022,reload:1900,model:'special'},
+    'Explosive':{damage:105,rate:1250,mag:2,range:850,spread:.012,recoil:.04,reload:3000,radius:135,model:'launcher'},
+    'Pistol':{damage:30,rate:260,mag:15,range:520,spread:.025,recoil:.02,reload:1250,model:'pistol'}
   };
   const primaryUnlocks=[
     {id:'shot_breach',name:'Breach-8',type:'Shotgun',level:2},
@@ -91,13 +91,15 @@
     {id:'smg_undertow',name:'Undertow-45',type:'Submachine gun',level:54}
   ];
   const rateVariants=[.94,1,1.06],spreadVariants=[.94,1,1.06];
+  let shotgunIndex=0;
   for (const [index,entry] of primaryUnlocks.entries()) {
     const profile=weaponProfiles[entry.type],variant=index%3;
     weapons[entry.id]={...profile,name:entry.name,type:entry.type,level:entry.level,slot:'primary',
       damage:Math.round(profile.damage+variant*2+Math.floor(entry.level/15)),
       rate:Math.round(profile.rate*rateVariants[variant]),
       mag:profile.mag+variant*(entry.type==='Light machine gun'?5:2),
-      range:profile.range+variant*15,spread:profile.spread*spreadVariants[variant]};
+      range:profile.range+variant*15,spread:profile.spread*spreadVariants[variant],
+      ...(entry.type==='Shotgun'?{pellets:[2,4,8][shotgunIndex++%3]}:{})};
   }
   const secondaryWeapons={
     pistol_sidekick:{name:'Sidekick 9',type:'Pistol',level:1,damage:30,rate:260,mag:15,range:520,spread:.025,reload:1250,model:'pistol'},
@@ -119,14 +121,23 @@
   };
   for (const weapon of Object.values(secondaryWeapons)) weapon.slot='secondary';
   Object.assign(weapons,secondaryWeapons);
+  for (const [id,weapon] of Object.entries(weapons)) {
+    weapon.weaponId=id;
+    weapon.recoil=weapon.recoil??weaponProfiles[weapon.type]?.recoil??.02;
+  }
   const attachments = {
-    control_grip:{name:'Angled control grip',effect:'Better recoil control',spread:.68,cost:250},
-    control_comp:{name:'Compensator',effect:'Better recoil control',spread:.78,cost:350},
+    control_grip:{name:'Angled control grip',effect:'Lower recoil and spread',spread:.9,recoil:.72,cost:250},
+    control_comp:{name:'Compensator',effect:'Strong recoil reduction',spread:.84,recoil:.58,cost:350},
     laser_red:{name:'Red laser',effect:'Tighter hip-fire aim',spread:.72,cost:300},
     laser_tac:{name:'Tactical laser',effect:'Tighter hip-fire aim',spread:.82,cost:400},
     mag_extended:{name:'Extended magazine',effect:'Larger magazine',mag:1.5,cost:500},
-    mag_fast:{name:'Fast magazine',effect:'Faster reload',reload:.68,cost:450}
+    mag_fast:{name:'Fast magazine',effect:'Faster reload',reload:.68,cost:450},
+    smg_duals:{name:'Dual SMG kit',effect:'Dual-wield SMGs · faster fire, wider spread',
+      types:['Submachine gun'],dualWield:true,rate:.86,spread:1.18,recoil:1.12,cost:750},
+    trigger_light:{name:'Lightened trigger',effect:'Faster firing · increased recoil',rate:.82,recoil:1.12,cost:650}
   };
+  const weaponColorParts=['receiver','barrel','grip'];
+  const weaponColorDefaults={receiver:'#647166',barrel:'#18211c',grip:'#29362d'};
   const vehicles = {
     scout_bike:{name:'Scout bike',speed:1.9,color:'#d8c76f'},
     assault_rover:{name:'Assault rover',speed:2.3,color:'#b8836e'},
@@ -217,6 +228,8 @@
   let refreshTimer = 0;
   let lastPositionWrite = 0;
   let lastShot = 0;
+  let recoilKick=0;
+  let lastRecoilAt=0;
   let reloading = false;
   let captureBusy = false;
   let captureTimer = 0;
@@ -250,6 +263,7 @@
   let aimOffset={x:0,y:0};
   let aimActive=false;
   let traces = [];
+  let muzzleFlashes=[];
   let pointerDown = false;
   let spectatorContainer=null;
   let spectatorUi=null;
@@ -270,6 +284,7 @@
   let lastStatsMarkup = '';
   let lastHudMarkup='';
   let lastResetLabel = '';
+  let secretSequence='';
 
   function weekKey(date = new Date()) {
     const target = new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()));
@@ -435,7 +450,11 @@
       ? [...new Set(value.ownedAttachments.filter(id=>Object.prototype.hasOwnProperty.call(attachments,id)))]
       : [];
     const xp=Math.max(0,Math.min(54*xpPerLevel,Math.floor(Number(value && value.xp)||0)));
-    return {xp,level:Math.min(55,Math.floor(xp/xpPerLevel)+1),ownedAttachments:owned};
+    const weaponColor=/^#[0-9a-f]{6}$/i.test(value&&value.weaponColor||'')?value.weaponColor:'';
+    const savedColors=value&&value.weaponColors&&typeof value.weaponColors==='object'?value.weaponColors:{};
+    const weaponColors=Object.fromEntries(weaponColorParts.map(part=>[part,
+      /^#[0-9a-f]{6}$/i.test(savedColors[part]||'')?savedColors[part]:weaponColor]));
+    return {xp,level:Math.min(55,Math.floor(xp/xpPerLevel)+1),ownedAttachments:owned,weaponColor,weaponColors};
   }
 
   function accountWorldFromLocal() {
@@ -605,7 +624,8 @@
         .map(([id,vehicle])=>[id,vehicle&&vehicle.type===transportType
           ?{...vehicle,passengers:Array.isArray(vehicle.passengers)?vehicle.passengers:[]}:vehicle])),
       turrets:scaleCollection(value.turrets),
-      drones:scaleCollection(value.drones),
+      drones:Object.fromEntries(Object.entries(scaleCollection(value.drones)).map(([id,drone])=>
+        [id,drone?{...drone,angle:Number.isFinite(Number(drone.angle))?Number(drone.angle):0}:drone])),
       smokes:scaleCollection(value.smokes),
       claymores:scaleCollection(value.claymores),
       grenades:scaleCollection(value.grenades)
@@ -774,6 +794,7 @@
       const selectedMag=effectiveWeapon({weapon:selectedWeapon,attachments:selectedAttachments},'primary').mag;
       const selectedSecondaryMag=effectiveWeapon({secondary:selectedSecondary,attachments:selectedAttachments},'secondary').mag;
       return {...initial,...(player || {}),name:playerName,team:playerTeam,
+        weaponColors:accountData.dropzone.weaponColors,weaponColor:'',
         weapon:selectedWeapon,secondary:selectedSecondary,attachments:selectedAttachments,
         ammo:player && selectedWeapon===player.weapon?Math.min(Number(player.ammo)||0,selectedMag):selectedMag,
         secondaryAmmo:player&&selectedSecondary===player.secondary
@@ -866,10 +887,14 @@
     const weaponId=slot==='secondary'?player&&player.secondary:player&&player.weapon;
     const weapon = weapons[weaponId] || weapons.ar_pulse;
     const mods = (player && Array.isArray(player.attachments) ? player.attachments : [])
-      .map(id => attachments[id]).filter(Boolean);
+      .map(id => attachments[id]).filter(mod=>mod&&(!mod.types||mod.types.includes(weapon.type)));
     return {
       ...weapon,
+      weaponId,
+      rate:Math.max(40,Math.round(weapon.rate*mods.reduce((value,mod)=>value*(mod.rate||1),1))),
       spread:weapon.spread * mods.reduce((value,mod) => value * (mod.spread || 1),1),
+      recoil:(weapon.recoil||.02)*mods.reduce((value,mod)=>value*(mod.recoil||1),1),
+      dualWield:mods.some(mod=>mod.dualWield),
       mag:Math.round(weapon.mag * mods.reduce((value,mod) => value * (mod.mag || 1),1)),
       reload:Math.round(weapon.reload * mods.reduce((value,mod) => value * (mod.reload || 1),1))
     };
@@ -1100,8 +1125,14 @@
       context.strokeStyle = trace.color;
       context.lineWidth = 3;
       context.beginPath();context.moveTo(trace.x1,trace.y1);context.lineTo(trace.x2,trace.y2);context.stroke();
+      if (trace.impact) {
+        context.fillStyle='#ffe6a1';
+        context.beginPath();context.arc(trace.x2,trace.y2,5,0,Math.PI*2);context.fill();
+      }
       context.globalAlpha = 1;
     });
+    muzzleFlashes=muzzleFlashes.filter(flash=>Date.now()-flash.time<85);
+    muzzleFlashes.forEach(flash=>drawMuzzleFlash(context,flash));
     context.restore();
     drawMinimap();
     updateStats(visiblePlayers);
@@ -1472,52 +1503,78 @@
     const model=weapon.model||({
       'Assault rifle':'rifle','Submachine gun':'smg','Sniper rifle':'sniper',Special:'special'
     }[weapon.type]||'rifle');
+    const weaponKey=String(weapon.weaponId||weapon.name||model);
+    const weaponSeed=Array.from(weaponKey).reduce((seed,char)=>seed+char.charCodeAt(0),0);
+    const finishes=['#70a9bf','#c87a5f','#d3b263','#8796ca','#bd78a1','#84ad70','#d0d5cc','#d58d48'];
+    const finish=finishes[weaponSeed%finishes.length];
+    const legacyColor=/^#[0-9a-f]{6}$/i.test(weapon.customColor||'')?weapon.customColor:'';
+    const customColors=weapon.customColors&&typeof weapon.customColors==='object'?weapon.customColors:{};
+    const receiverColor=/^#[0-9a-f]{6}$/i.test(customColors.receiver||'')?customColors.receiver:legacyColor||finish;
+    const barrelColor=/^#[0-9a-f]{6}$/i.test(customColors.barrel||'')?customColors.barrel:legacyColor||'#18211c';
+    const gripColor=/^#[0-9a-f]{6}$/i.test(customColors.grip||'')?customColors.grip:legacyColor||'#29362d';
+    if (weapon.dualWield) {
+      context.save();context.translate(0,-4);
+      drawHeldWeapon(context,{...weapon,dualWield:false});context.restore();
+      context.save();context.translate(0,4);context.scale(.82,.82);
+      drawHeldWeapon(context,{...weapon,dualWield:false});context.restore();
+      return;
+    }
     context.lineCap='square';
     context.fillStyle='#18211c';
     context.strokeStyle='#c0c9be';
     context.lineWidth=1.5;
     if (model==='pistol') {
-      context.fillRect(13,-3,18,6);
-      context.fillStyle='#5b6c60';context.fillRect(17,-4,13,2);
-      context.fillStyle='#25332a';context.fillRect(17,2,7,7);
+      context.fillStyle=barrelColor;context.fillRect(13,-3,18,6);
+      context.fillStyle=receiverColor;context.fillRect(17,-4,13,2);
+      context.fillStyle=gripColor;context.fillRect(17,2,7,7);
       context.fillStyle='#111a15';context.fillRect(29,-2,5,4);
+    } else if (model==='smg') {
+      context.fillStyle=receiverColor;context.fillRect(12,-4,27,8);
+      context.fillStyle=barrelColor;context.fillRect(36,-2,11,4);
+      context.fillStyle=receiverColor;context.fillRect(16,-5.5,15,3.5);
+      context.fillStyle=gripColor;context.fillRect(21,3,7,10);
+      context.fillStyle='#111a15';context.fillRect(43,-2,4,4);
     } else if (model==='shotgun') {
-      context.fillRect(10,-5,33,10);
-      context.fillStyle='#586252';context.fillRect(15,-6,17,12);
-      context.fillStyle='#202922';context.fillRect(25,5,5,10);
+      context.fillStyle=barrelColor;context.fillRect(10,-5,33,10);
+      context.fillStyle=receiverColor;context.fillRect(15,-6,17,12);
+      context.fillStyle=gripColor;context.fillRect(25,5,5,10);
       context.fillRect(39,-3,8,6);
     } else if (model==='sniper') {
-      context.fillRect(8,-3,47,6);
-      context.fillStyle='#58675c';context.fillRect(16,-5,20,3);
-      context.fillRect(19,2,8,4);
+      context.fillStyle=barrelColor;context.fillRect(8,-3,47,6);
+      context.fillStyle=receiverColor;context.fillRect(16,-5,20,3);
+      context.fillStyle=gripColor;context.fillRect(19,2,8,4);
       context.fillStyle='#131a16';context.fillRect(51,-1.5,11,3);
     } else if (model==='lmg') {
-      context.fillRect(10,-5,38,10);
-      context.fillStyle='#59665b';context.fillRect(14,-7,25,4);
-      context.fillStyle='#29362d';context.fillRect(22,4,9,11);
-      context.fillStyle='#111a15';context.fillRect(44,-2,11,4);
+      context.fillStyle=receiverColor;context.fillRect(10,-5,38,10);
+      context.fillStyle=receiverColor;context.fillRect(14,-7,25,4);
+      context.fillStyle=gripColor;context.fillRect(22,4,9,11);
+      context.fillStyle=barrelColor;context.fillRect(44,-2,11,4);
+      context.fillStyle='#111a15';context.fillRect(53,-2,3,4);
     } else if (model==='launcher') {
-      context.fillStyle='#293830';context.fillRect(10,-7,39,14);
+      context.fillStyle=barrelColor;context.fillRect(10,-7,39,14);
       context.strokeRect(10,-7,39,14);
-      context.fillStyle='#8b9c83';context.fillRect(15,-4,20,8);
-      context.fillStyle='#111a15';context.fillRect(45,-5,11,10);
+      context.fillStyle=receiverColor;context.fillRect(15,-4,20,8);
+      context.fillStyle=gripColor;context.fillRect(45,-5,11,10);
       context.fillStyle='#f0c76b';context.fillRect(54,-2,4,4);
     } else if (model==='marksman') {
-      context.fillRect(9,-3.5,43,7);
-      context.fillStyle='#667366';context.fillRect(17,-6,18,3);
-      context.fillRect(24,3,6,8);
+      context.fillStyle=barrelColor;context.fillRect(9,-3.5,43,7);
+      context.fillStyle=receiverColor;context.fillRect(17,-6,18,3);
+      context.fillStyle=gripColor;context.fillRect(24,3,6,8);
       context.fillStyle='#111a15';context.fillRect(48,-1.5,10,3);
     } else if (model==='special') {
-      context.fillStyle='#35453b';context.fillRect(10,-5,36,10);
-      context.fillStyle='#9cc9ad';context.fillRect(18,-3,16,2);
-      context.fillStyle='#25332a';context.fillRect(21,4,7,9);
-      context.fillStyle='#111a15';context.fillRect(43,-2,9,4);
+      context.fillStyle=receiverColor;context.fillRect(10,-5,36,10);
+      context.fillStyle=barrelColor;context.fillRect(43,-2,9,4);
+      context.fillStyle=receiverColor;context.fillRect(18,-3,16,2);
+      context.fillStyle=gripColor;context.fillRect(21,4,7,9);
+      context.fillStyle='#111a15';context.fillRect(49,-2,3,4);
     } else {
-      context.fillRect(10,-4,37,8);
-      context.fillStyle='#647166';context.fillRect(17,-6,18,3);
-      context.fillStyle='#29362d';context.fillRect(23,4,7,10);
+      context.fillStyle=barrelColor;context.fillRect(10,-4,37,8);
+      context.fillStyle=receiverColor;context.fillRect(17,-6,18,3);
+      context.fillStyle=gripColor;context.fillRect(23,4,7,10);
       context.fillStyle='#111a15';context.fillRect(43,-2,10,4);
     }
+    context.fillStyle=receiverColor;
+    context.fillRect(13+(weaponSeed%5)*4,-1.5,3,3);
   }
 
   function drawParkedVehicle(context,vehicle) {
@@ -1642,6 +1699,26 @@
     context.restore();
   }
 
+  function drawMuzzleFlash(context,flash) {
+    const age=Date.now()-flash.time;
+    if (age<0||age>=85) return;
+    const fade=1-age/85;
+    context.save();
+    context.translate(flash.x,flash.y);
+    context.rotate(flash.angle);
+    context.globalAlpha=fade;
+    context.globalCompositeOperation='lighter';
+    context.shadowColor='#ff9a42';
+    context.shadowBlur=18*fade;
+    context.fillStyle='#ffb347';
+    context.beginPath();
+    context.moveTo(-3,-5);context.lineTo(17,-2);context.lineTo(24,0);
+    context.lineTo(17,2);context.lineTo(-3,5);context.closePath();context.fill();
+    context.fillStyle='#fff3bd';
+    context.beginPath();context.ellipse(2,0,6,3.5,0,0,Math.PI*2);context.fill();
+    context.restore();
+  }
+
   function drawThrownGrenade(context,grenade) {
     if (!grenade||Number(grenade.expiresAt)<=Date.now()) return;
     const now=Date.now();
@@ -1736,16 +1813,18 @@
       const laser=Array.isArray(player.attachments)?player.attachments.find(id=>id==='laser_red'||id==='laser_tac'):'';
       if (laser&&distance>38) {
         const muzzleX=x+Math.cos(angle)*39,muzzleY=y+Math.sin(angle)*39;
+        const obstruction=firstSolidObstruction(muzzleX,muzzleY,targetX,targetY);
+        const laserEnd=obstruction||{x:targetX,y:targetY};
         context.save();
         context.globalAlpha=.72;
         context.strokeStyle=laser==='laser_red'?'#ff5b62':'#9affbf';
         context.shadowColor=context.strokeStyle;
         context.shadowBlur=8;
         context.lineWidth=2;
-        context.beginPath();context.moveTo(muzzleX,muzzleY);context.lineTo(targetX,targetY);context.stroke();
+        context.beginPath();context.moveTo(muzzleX,muzzleY);context.lineTo(laserEnd.x,laserEnd.y);context.stroke();
         context.shadowBlur=0;
         context.fillStyle=context.strokeStyle;
-        context.beginPath();context.arc(targetX,targetY,4,0,Math.PI*2);context.fill();
+        context.beginPath();context.arc(laserEnd.x,laserEnd.y,4,0,Math.PI*2);context.fill();
         context.restore();
       }
       if (isSelf&&aimActive) {
@@ -1781,7 +1860,7 @@
       context.fillStyle='#798b7e';
       context.beginPath();context.arc(10,0,8,0,Math.PI*2);context.fill();
       context.strokeStyle='#d4dfd6';context.lineWidth=2;context.stroke();
-      drawHeldWeapon(context,weapon);
+      drawHeldWeapon(context,{...weapon,customColor:player.weaponColor||'',customColors:player.weaponColors||{}});
       context.restore();
     }
     context.fillStyle = '#101713';
@@ -1812,7 +1891,7 @@
       ammo + ' / ' + weapon.mag + '</span><span>Level ' + progress.level +
       ' · XP ' + progress.xp + ' / ' + (progress.level===55?progress.xp:(progress.level*xpPerLevel)) + '</span>';
     if (markup!==lastStatsMarkup) { ui.stats.innerHTML=markup;lastStatsMarkup=markup; }
-    updateCombatHud(player);
+    updateCombatHud(player,weapon,ammo,weaponSlot);
     updateWeaponSwitchUi(player);
     if (ui.giveUp) ui.giveUp.hidden=!player.downed;
     const next = new Date();
@@ -1822,7 +1901,7 @@
     if (label!==lastResetLabel) { ui.reset.textContent=label;lastResetLabel=label; }
   }
 
-  function updateCombatHud(player) {
+  function updateCombatHud(player,weapon,ammo,weaponSlot) {
     if (!ui||!ui.hud) return;
     const health=Math.max(0,Math.min(100,Number(player.hp)||0));
     const armor=Math.max(0,Math.min(150,Number(player.armorHp)||0));
@@ -1834,12 +1913,19 @@
       const label=state==='worn'?'Armor active':state==='ready'?'Armor plate ready':'Empty plate slot';
       return '<span class="nexus-war-plate-slot '+state+'" aria-label="'+label+'"><i style="height:'+fill+'%"></i></span>';
     }).join('');
+    const ammoLabel=vehicleWeapons[player.vehicle]?'VEHICLE AMMO':
+      weaponSlot==='secondary'?'SECONDARY AMMO':'PRIMARY AMMO';
+    const ammoCapacity=Math.max(1,Number(weapon.mag)||1);
+    const ammoPercent=Math.max(0,Math.min(100,(Number(ammo)||0)/ammoCapacity*100));
     const markup='<div class="nexus-war-hud-vitals"><div class="nexus-war-hud-heading">'+
       '<span>VITALS</span><strong class="'+(health<=30?'critical':'')+'">'+Math.ceil(health)+'<small> / 100</small></strong></div>'+
       '<div class="nexus-war-health-track"><i class="'+(health<=30?'critical':'')+'" style="width:'+health+'%"></i></div>'+
       (player.downed?'<span class="nexus-war-downed">DOWNED</span>':'')+'</div>'+
       '<div class="nexus-war-hud-armor"><div class="nexus-war-hud-heading"><span>ARMOR</span><strong>'+Math.ceil(armor)+'<small> / 150</small></strong></div>'+
-      '<div class="nexus-war-plate-slots">'+slots+'</div><small class="nexus-war-ready-plates">'+carried+' READY</small></div>';
+      '<div class="nexus-war-plate-slots">'+slots+'</div><small class="nexus-war-ready-plates">'+carried+' READY</small></div>'+
+      '<div class="nexus-war-hud-ammo"><div class="nexus-war-hud-heading"><span>'+ammoLabel+'</span><strong>'+Math.max(0,Number(ammo)||0)+
+      '<small> / '+Number(weapon.mag||0)+'</small></strong></div><div class="nexus-war-ammo-track"><i style="width:'+ammoPercent+'%"></i></div>'+
+      '<small class="nexus-war-ammo-name">'+weapon.name+'</small></div>';
     if (markup!==lastHudMarkup) { ui.hud.innerHTML=markup;lastHudMarkup=markup; }
   }
 
@@ -1939,6 +2025,14 @@
     if (target instanceof HTMLSelectElement&&key!=='v') return;
     if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright','r','e','v','q','f','g','x','c','z','1','2','shift'].includes(key)) event.preventDefault();
     if (event.repeat&&!['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright'].includes(key)) return;
+    if (/^[a-z]$/.test(key)) {
+      secretSequence=(secretSequence+key).slice(-'theyseeyou'.length);
+      if (secretSequence==='theyseeyou'&&ui?.secretXp) {
+        ui.secretXp.hidden=false;
+        setStatus('Secret menu option unlocked.');
+        secretSequence='';
+      }
+    } else secretSequence='';
     if (paused) return;
     if (key==='shift') { toggleDroneControl();return; }
     if (key==='g'&&warState&&warState.players[playerKey]?.downed&&!giveUpInterval) {
@@ -1980,7 +2074,7 @@
 
   async function fireWeapon() {
     const now = Date.now();
-    if (destroyed||paused||now-lastShot<70||reloading) return;
+    if (destroyed||paused||now-lastShot<30||reloading) return;
     const shooter = warState && warState.players[playerKey];
     if (!shooter || shooter.respawnAt > now || shooter.hp <= 0 || shooter.downed) return;
     const transport=shooter.transportId&&warState.vehicles[shooter.transportId];
@@ -2000,8 +2094,9 @@
     const weapon=vehicleWeapon||effectiveWeapon(shooter,weaponSlot);
     const ammoField=vehicleWeapon?'vehicleAmmo':weaponSlot==='secondary'?'secondaryAmmo':'ammo';
     const weaponField=weaponSlot==='secondary'?'secondary':'weapon';
+    const ammoCost=weapon.dualWield?2:1;
     if (now - lastShot < weapon.rate) return;
-    if (Number(shooter[ammoField]||0) <= 0) { setStatus('Magazine empty. Press R to reload.'); return; }
+    if (Number(shooter[ammoField]||0) < ammoCost) { setStatus('Magazine empty. Press R to reload.'); return; }
     lastShot = now;
     playSound('shot');
     let fired;
@@ -2010,53 +2105,69 @@
         if (!current||current.vehicle!==shooter.vehicle||
           (weaponSlot&&(current[weaponField]!==shooter[weaponField]||
             current.activeWeaponSlot!==shooter.activeWeaponSlot))||
-          Number(current[ammoField]||0)<=0||
+          Number(current[ammoField]||0)<ammoCost||
             Date.now()-Number(current.lastShotAt||0)<weapon.rate-20) return current;
-        return {...current,[ammoField]:Number(current[ammoField])-1,
+        return {...current,[ammoField]:Number(current[ammoField])-ammoCost,
           facingAngle:Math.atan2(aim.y-shooterPosition.y,aim.x-shooterPosition.x),
           lastShotAt:Date.now(),lastSeen:Date.now()};
       });
     } catch (error) { setStatus(error.message,true); return; }
-    if (!fired||fired[ammoField]!==Number(shooter[ammoField])-1) return;
+    if (!fired||fired[ammoField]!==Number(shooter[ammoField])-ammoCost) return;
+    const recoilRecovery=Math.max(0,now-lastRecoilAt)/1000*.24;
+    recoilKick=Math.min(.22,Math.max(0,recoilKick-recoilRecovery)+(weapon.recoil||.02));
+    lastRecoilAt=now;
     const origin = {...shooter,x:Number(shooterPosition.x),y:Number(shooterPosition.y)};
-    const angle = Math.atan2(aim.y-origin.y,aim.x-origin.x) + (Math.random()-.5)*weapon.spread;
-    const end = {
-      x:Math.max(0,Math.min(worldWidth,origin.x+Math.cos(angle)*weapon.range)),
-      y:Math.max(0,Math.min(worldHeight,origin.y+Math.sin(angle)*weapon.range))
-    };
-    const target = closestTarget(origin,end);
-    const aircraftHit=closestTransport(origin,end,shooter.vehicle==='anti_air');
-    const baseHit = closestBase(origin,end);
-    let impact=target;
-    if (aircraftHit&&(!impact||aircraftHit.distance<impact.distance)) impact=aircraftHit;
-    if (baseHit&&(!impact||baseHit.distance<impact.distance)) impact=baseHit;
-    traces.push({x1:origin.x,y1:origin.y,x2:impact ? impact.x : end.x,y2:impact ? impact.y : end.y,time:Date.now(),color:shooter.team === 'vortex' ? '#80b7ff' : '#ff8792'});
+    const flashAngle=Math.atan2(aim.y-origin.y,aim.x-origin.x)-recoilKick;
+    muzzleFlashes.push({x:origin.x+Math.cos(flashAngle)*48,y:origin.y+Math.sin(flashAngle)*48,
+      angle:flashAngle,time:Date.now()});
+    if (muzzleFlashes.length>24) muzzleFlashes.shift();
+    const pelletCount=Math.max(1,Math.floor(Number(weapon.pellets)||1));
+    const pelletDamage=Math.max(1,Math.round(weapon.damage/pelletCount));
     try {
-      if (weapon.radius) {
-        const center=impact?{x:impact.x,y:impact.y}:end;
-        const explosionId='impact_'+playerKey+'_'+Date.now();
-        await updateWar('grenades/'+explosionId,()=>({x:center.x,y:center.y,
-          detonatedAt:Date.now(),expiresAt:Date.now()+650,radius:weapon.radius}));
-        if (baseHit&&impact===baseHit) await raidBase(baseHit.team,Math.round(weapon.damage*.7),shooter.team);
-        if (impact&&impact.turret) await hitTurret(impact.turretId,weapon.damage);
-        if (impact&&impact.transport) await hitTransport(impact.transportId,weapon.aircraftDamage||weapon.damage);
-        for (const enemy of Object.values(warState.players||{})) {
-          if (!enemy||enemy.team===shooter.team||enemy.transportId||!enemy.online) continue;
-          const distance=Math.hypot(Number(enemy.x)-center.x,Number(enemy.y)-center.y);
-          if (distance<weapon.radius) {
-            const damage=distance<45?weapon.damage:
-              Math.max(1,Math.round(weapon.damage*.8*(1-distance/weapon.radius)));
-            await hitPlayer(enemy,damage,shooter);
+      for (let pellet=0;pellet<pelletCount;pellet++) {
+        const angle=Math.atan2(aim.y-origin.y,aim.x-origin.x)+(Math.random()-.5)*weapon.spread-recoilKick;
+        const end={
+          x:Math.max(0,Math.min(worldWidth,origin.x+Math.cos(angle)*weapon.range)),
+          y:Math.max(0,Math.min(worldHeight,origin.y+Math.sin(angle)*weapon.range))
+        };
+        const penetratesWalls=weapon.type==='Sniper rifle';
+        const wallHit=firstSolidObstruction(origin.x,origin.y,end.x,end.y,penetratesWalls);
+        const shotEnd=wallHit||end;
+        const target=closestTarget(origin,shotEnd,penetratesWalls);
+        const aircraftHit=closestTransport(origin,shotEnd,shooter.vehicle==='anti_air');
+        const baseHit=closestBase(origin,shotEnd,penetratesWalls);
+        let impact=target;
+        if (aircraftHit&&(!impact||aircraftHit.distance<impact.distance)) impact=aircraftHit;
+        if (baseHit&&(!impact||baseHit.distance<impact.distance)) impact=baseHit;
+        traces.push({x1:origin.x,y1:origin.y,x2:impact?impact.x:shotEnd.x,y2:impact?impact.y:shotEnd.y,
+          time:Date.now(),color:shooter.team==='vortex'?'#80b7ff':'#ff8792',impact:!!wallHit&&!impact});
+        if (weapon.radius) {
+          const center=impact?{x:impact.x,y:impact.y}:shotEnd;
+          const explosionId='impact_'+playerKey+'_'+Date.now()+'_'+pellet;
+          await updateWar('grenades/'+explosionId,()=>({x:center.x,y:center.y,
+            detonatedAt:Date.now(),expiresAt:Date.now()+650,radius:weapon.radius}));
+          if (baseHit&&impact===baseHit) await raidBase(baseHit.team,Math.round(weapon.damage*.7),shooter.team);
+          if (impact&&impact.turret) await hitTurret(impact.turretId,weapon.damage);
+          if (impact&&impact.transport) await hitTransport(impact.transportId,weapon.aircraftDamage||weapon.damage);
+          for (const enemy of Object.values(warState.players||{})) {
+            if (!enemy||enemy.team===shooter.team||enemy.transportId||!enemy.online) continue;
+            const distance=Math.hypot(Number(enemy.x)-center.x,Number(enemy.y)-center.y);
+            if (distance<weapon.radius&&
+              !lineBlocked(center.x,center.y,Number(enemy.x),Number(enemy.y),penetratesWalls)) {
+              const damage=distance<45?weapon.damage:
+                Math.max(1,Math.round(weapon.damage*.8*(1-distance/weapon.radius)));
+              await hitPlayer(enemy,damage,shooter);
+            }
           }
+        } else if (impact&&impact.target) {
+          await hitPlayer(impact.target,pelletDamage,shooter);
+        } else if (impact&&impact.turret) {
+          await hitTurret(impact.turretId,pelletDamage);
+        } else if (impact&&impact.transport) {
+          await hitTransport(impact.transportId,weapon.aircraftDamage||125);
+        } else if (baseHit) {
+          await raidBase(baseHit.team,pelletDamage,shooter.team);
         }
-      } else if (impact && impact.target) {
-        await hitPlayer(impact.target,weapon.damage,shooter);
-      } else if (impact&&impact.turret) {
-        await hitTurret(impact.turretId,weapon.damage);
-      } else if (impact&&impact.transport) {
-        await hitTransport(impact.transportId,weapon.aircraftDamage||125);
-      } else if (baseHit) {
-        await raidBase(baseHit.team,weapon.damage,shooter.team);
       }
     } catch(error) {
       setStatus(error.message||'The attack could not be completed.',true);
@@ -2065,20 +2176,20 @@
     if (pointerDown) window.setTimeout(fireWeapon,weapon.rate);
   }
 
-  function closestTarget(origin,end) {
+  function closestTarget(origin,end,penetratesWalls=false) {
     let closest = null;
     for (const player of Object.values(warState.players || {})) {
       if (!player || player.team === origin.team || !player.online || (player.hp<=0&&!player.downed) ||
           (player.respawnAt>Date.now()&&!player.downed) || player.transportId ||
           Date.now()-Number(player.lastSeen||0)>20000) continue;
       const hit = pointToSegment(player.x,player.y,origin.x,origin.y,end.x,end.y);
-      if (hit.distance <= 38 && !lineBlocked(origin.x,origin.y,player.x,player.y) &&
+      if (hit.distance <= 38 && !lineBlocked(origin.x,origin.y,player.x,player.y,penetratesWalls) &&
           (!closest || hit.along < closest.distance)) closest = {target:player,distance:hit.along,x:hit.x,y:hit.y};
     }
     for (const [id,turret] of Object.entries(warState.turrets||{})) {
       if (!turret||turret.team===origin.team||Number(turret.hp)<=0) continue;
       const hit=pointToSegment(turret.x,turret.y,origin.x,origin.y,end.x,end.y);
-      if (hit.distance<=30&&!lineBlocked(origin.x,origin.y,turret.x,turret.y)&&
+      if (hit.distance<=30&&!lineBlocked(origin.x,origin.y,turret.x,turret.y,penetratesWalls)&&
           (!closest||hit.along<closest.distance)) closest={turret,turretId:id,distance:hit.along,x:hit.x,y:hit.y};
     }
     return closest;
@@ -2123,11 +2234,12 @@
     }
   }
 
-  function closestBase(origin,end) {
+  function closestBase(origin,end,penetratesWalls=false) {
     let closest = null;
     for (const team of ['vortex','krypton']) {
       if (team === origin.team) continue;
       const {x,y}=basePositions[team];
+      if (lineBlocked(origin.x,origin.y,x,y,penetratesWalls)) continue;
       const hit = pointToSegment(x,y,origin.x,origin.y,end.x,end.y);
       if (hit.distance <= 130 && (!closest || hit.along < closest.distance)) closest = {team,distance:hit.along,x,y};
     }
@@ -2177,12 +2289,43 @@
     }
   }
 
-  function lineBlocked(x1,y1,x2,y2) {
-    for (let step=1;step<20;step++) {
-      const t=step/20;
-      const x=x1+(x2-x1)*t,y=y1+(y2-y1)*t;
-      if (obstacles.some(item=>circleIntersectsRect(x,y,4,item))||lootBoxIntersects(x,y,4)) return true;
+  function segmentRectIntersection(x1,y1,x2,y2,rect,padding=0) {
+    const left=Number(rect.x)-padding,right=Number(rect.x)+Number(rect.w)+padding;
+    const top=Number(rect.y)-padding,bottom=Number(rect.y)+Number(rect.h)+padding;
+    const dx=x2-x1,dy=y2-y1;
+    let near=0,far=1;
+    for (const [p,q] of [[-dx,x1-left],[dx,right-x1],[-dy,y1-top],[dy,bottom-y1]]) {
+      if (Math.abs(p)<1e-9) { if (q<0) return null;continue; }
+      const ratio=q/p;
+      if (p<0) near=Math.max(near,ratio);
+      else far=Math.min(far,ratio);
+      if (near>far) return null;
     }
+    const startsInside=x1>=left&&x1<=right&&y1>=top&&y1<=bottom;
+    const endsInside=x2>=left&&x2<=right&&y2>=top&&y2<=bottom;
+    if (startsInside&&endsInside) return null;
+    const fraction=startsInside?far:near;
+    return fraction>=0&&fraction<=1?fraction:null;
+  }
+
+  function firstSolidObstruction(x1,y1,x2,y2,penetratesWalls=false) {
+    let closestFraction=Infinity,blocked=false;
+    const checkRect=rect=>{
+      const fraction=segmentRectIntersection(x1,y1,x2,y2,rect,4);
+      if (fraction!==null&&fraction<closestFraction) { closestFraction=fraction;blocked=true; }
+    };
+    for (const item of obstacles) {
+      if (penetratesWalls&&(item.type==='building'||item.type==='house')) continue;
+      checkRect(item);
+    }
+    for (const crate of Object.values(warState&&warState.lootBoxes||{})) {
+      if (crate&&crate.available) checkRect({x:Number(crate.x)-15,y:Number(crate.y)-15,w:30,h:30});
+    }
+    return blocked?{x:x1+(x2-x1)*closestFraction,y:y1+(y2-y1)*closestFraction}:null;
+  }
+
+  function lineBlocked(x1,y1,x2,y2,penetratesWalls=false) {
+    if (firstSolidObstruction(x1,y1,x2,y2,penetratesWalls)) return true;
     if (warState&&Object.values(warState.smokes||{}).some(smoke=>
       Number(smoke.expiresAt)>Date.now()&&pointToSegment(smoke.x,smoke.y,x1,y1,x2,y2).distance<Number(smoke.radius||190))) return true;
     return false;
@@ -2511,8 +2654,12 @@
       setStatus('Equip a purchased kamikaze drone in your lethal slot first.',true);return;
     }
     const position=localPosition||player;
+    const aimX=Number(aim&&aim.x),aimY=Number(aim&&aim.y);
+    const originX=Number(position.x),originY=Number(position.y);
+    const angle=Number.isFinite(aimX)&&Number.isFinite(aimY)&&Number.isFinite(originX)&&Number.isFinite(originY)
+      ?Math.atan2(aimY-originY,aimX-originX):Number(player.facingAngle)||0;
     const drone={owner:playerName,team:playerTeam,x:position.x,y:position.y,
-      angle:Math.atan2(aim.y-position.y,aim.x-position.x),hp:1,manual:true,lastWriteAt:0};
+      angle,hp:1,manual:true,lastWriteAt:0};
     await mutatePlayer(current=>{
       const remaining=Math.max(0,Number(current.droneCharges||0)-1);
       return {...current,droneCharges:remaining,...(remaining===0?{lethal:'grenade'}:{})};
@@ -2565,7 +2712,9 @@
   function updateDrone(timestamp) {
     const current=warState&&warState.drones&&warState.drones[playerKey];
     if (!current||current.hp<=0) { activeDrone=false;localDronePosition=null;return; }
-    if (!localDronePosition) localDronePosition={x:Number(current.x),y:Number(current.y),angle:Number(current.angle)||0};
+    if (!localDronePosition) localDronePosition={x:Number(current.x),y:Number(current.y),
+      angle:Number.isFinite(Number(current.angle))?Number(current.angle):0};
+    if (!Number.isFinite(localDronePosition.angle)) localDronePosition.angle=0;
     const elapsed=Math.min(.05,Math.max(0,(timestamp-(updateDrone.lastFrame||timestamp))/1000));
     updateDrone.lastFrame=timestamp;
     let dx=droneControlled?(keys.has('d')?1:0)-(keys.has('a')?1:0):0;
@@ -2592,13 +2741,15 @@
         .catch(error=>setStatus(error.message||'Could not remove the spent drone.',true));
       activeDrone=false;localDronePosition=null;setStatus(hit?'Drone detonated on target.':'Drone detonated on impact.');return;
     }
-    localDronePosition=next;
-    const local={...current,...next,angle:localDronePosition.angle};
+    const safeAngle=Number.isFinite(localDronePosition.angle)?localDronePosition.angle:0;
+    localDronePosition={...next,angle:safeAngle};
+    const local={...current,...localDronePosition};
     warState.drones[playerKey]=local;
     if (Date.now()-lastDroneWriteAt>120&&!updateDrone.writeBusy) {
       updateDrone.writeBusy=true;
       lastDroneWriteAt=Date.now();
-      updateWar('drones/'+playerKey,drone=>drone?{...drone,...next,angle:local.angle,lastWriteAt:Date.now()}:drone)
+      updateWar('drones/'+playerKey,drone=>drone?{...drone,...next,
+        angle:Number.isFinite(local.angle)?local.angle:0,lastWriteAt:Date.now()}:drone)
         .catch(error=>setStatus(error.message||'Drone telemetry failed.',true))
         .finally(()=>{updateDrone.writeBusy=false;});
     }
@@ -3193,10 +3344,13 @@
     const weaponId=ui.weapon.value;
     const secondaryId=ui.secondaryWeapon.value;
     const chosen=[ui.attachment1.value,ui.attachment2.value].filter(Boolean);
+    const chosenWeapons=[weapons[weaponId],weapons[secondaryId]];
     if (!weapons[weaponId]||weapons[weaponId].slot==='secondary'||
         !weapons[secondaryId]||weapons[secondaryId].slot!=='secondary'||
         chosen.some(id=>!attachments[id] ||
-        !accountData.dropzone.ownedAttachments.includes(id)) || new Set(chosen).size!==chosen.length) {
+      !accountData.dropzone.ownedAttachments.includes(id) ||
+      (attachments[id].types&&!chosenWeapons.some(weapon=>weapon&&attachments[id].types.includes(weapon.type)))) ||
+      new Set(chosen).size!==chosen.length) {
       setStatus('Choose a primary, a pistol or explosive secondary, and attachments you own.',true);return;
     }
     const lockedWeapon=[weaponId,secondaryId].map(id=>weapons[id])
@@ -3243,10 +3397,15 @@
       (progress.level===55?100:inLevel/xpPerLevel*100)+'%"></span></div><small>Eliminations and captured relays earn XP. Progress and purchased attachments stay with your Nexus account after weekly wipes.</small>';
     const balance=Number(accountData.balance||0);
     ui.wallet.textContent='Sektorium: '+balance.toLocaleString();
+    for (const part of weaponColorParts) {
+      if (ui.weaponColors&&ui.weaponColors[part])
+        ui.weaponColors[part].value=progress.weaponColors[part]||weaponColorDefaults[part];
+    }
     const current=ui.weapon.value;
     const currentSecondary=ui.secondaryWeapon.value||warState.players[playerKey]?.secondary||'pistol_sidekick';
-    const primaryEntries=Object.entries(weapons).filter(([,weapon])=>weapon.slot!=='secondary');
-    const secondaryEntries=Object.entries(weapons).filter(([,weapon])=>weapon.slot==='secondary');
+    const byUnlockLevel=(left,right)=>left[1].level-right[1].level||left[1].name.localeCompare(right[1].name);
+    const primaryEntries=Object.entries(weapons).filter(([,weapon])=>weapon.slot!=='secondary').sort(byUnlockLevel);
+    const secondaryEntries=Object.entries(weapons).filter(([,weapon])=>weapon.slot==='secondary').sort(byUnlockLevel);
     const arsenalSummary=container.querySelector('.nexus-war-arsenal > span');
     if (arsenalSummary) arsenalSummary.textContent=primaryEntries.length+' primary weapons across '+
       new Set(primaryEntries.map(([,weapon])=>weapon.type)).size+' classes · '+
@@ -3299,6 +3458,35 @@
     } catch(error) { setStatus(error.message||'Could not purchase the attachment.',true); }
   }
 
+  async function colorWeapons() {
+    const colors=Object.fromEntries(weaponColorParts.map(part=>[
+      part,String(ui.weaponColors[part].value||'').toLowerCase()
+    ]));
+    if (Object.values(colors).some(color=>!/^#[0-9a-f]{6}$/.test(color))) {
+      setStatus('Choose a valid color for each weapon part.',true);return;
+    }
+    const sameColors=current=>weaponColorParts.every(part=>current&&current[part]===colors[part]);
+    if (sameColors(accountData.dropzone.weaponColors)) { setStatus('Those weapon part colors are already applied.');return; }
+    try {
+      let purchaseError='';
+      await updateAccount(user=>{
+        const progress=normalizeProgress(user.dropzone);
+        const balance=Number(user.balance||0);
+        if (sameColors(progress.weaponColors)) { purchaseError='Those weapon part colors are already applied.';return; }
+        if (balance<100) { purchaseError='You need 100 Sektorium to apply weapon part colors.';return; }
+        user.balance=balance-100;
+        progress.weaponColor='';
+        progress.weaponColors=colors;
+        user.dropzone=progress;
+      });
+      if (purchaseError) throw new Error(purchaseError);
+      await mutatePlayer(player=>({...player,weaponColors:colors,weaponColor:''}));
+      refreshProgressUi();
+      draw();
+      setStatus('Weapon part colors applied for 100 Sektorium.');
+    } catch(error) { setStatus(error.message||'Could not apply that weapon color.',true); }
+  }
+
   function onActionClick(event) {
     const button=event.target.closest('[data-war-action]');
     if (!button || !container || !container.contains(button)) {
@@ -3310,6 +3498,7 @@
     if (button.dataset.warAction==='pause-game') togglePause(true);
     if (button.dataset.warAction==='resume-game') togglePause(false);
     if (button.dataset.warAction==='audio-toggle') toggleSound();
+    if (button.dataset.warAction==='color-weapons') colorWeapons();
     if (button.dataset.warAction==='close-spawn-menu') closeVehicleSpawnMenu();
     if (button.dataset.warAction==='spawn-selected-vehicle') deployVehicle(ui.spawnVehicle.value);
     if (button.dataset.warAction==='switch-weapon') switchWeaponSlot(
@@ -3347,6 +3536,10 @@
     ui.attachment2.value=(player.attachments||[])[1]||'';
     ui.tactical.value=player.tactical||'smoke';
     ui.lethal.value=player.lethal||'grenade';
+    for (const part of weaponColorParts) {
+      if (ui.weaponColors&&ui.weaponColors[part])
+        ui.weaponColors[part].value=accountData.dropzone.weaponColors[part]||weaponColorDefaults[part];
+    }
     updateWeaponSwitchUi(player);
     setStatus('Connected · '+teamLabel(playerTeam)+' · WASD move, mouse aim/fire, 1 primary, 2 secondary, R reload.');
     refreshProgressUi();
@@ -3463,6 +3656,7 @@
     ui.spawnVehicle.addEventListener('change',()=>{ui.vehicle.value=ui.spawnVehicle.value;});
     ui.mapWrap.appendChild(ui.spawnMenu);
     ui.weapon.innerHTML=Object.entries(weapons).filter(([,weapon])=>weapon.slot!=='secondary')
+      .sort((left,right)=>left[1].level-right[1].level||left[1].name.localeCompare(right[1].name))
       .map(([id,weapon])=>'<option value="'+id+'">'+weapon.type+' · '+weapon.name+'</option>').join('');
     ui.attachment1.innerHTML='<option value="">No attachment</option>';
     ui.attachment2.innerHTML='<option value="">No attachment</option>';
@@ -3472,6 +3666,27 @@
     const secondaryLabel=document.createElement('label');
     secondaryLabel.append('Secondary',ui.secondaryWeapon);
     ui.form.insertBefore(secondaryLabel,ui.attachment1.parentElement);
+    ui.weaponColors={};
+    const colorButton=document.createElement('button');
+    colorButton.type='button';
+    colorButton.className='nexus-button secondary';
+    colorButton.dataset.warAction='color-weapons';
+    colorButton.textContent='Apply part colors · 100 Sektorium';
+    const colorControls=document.createElement('div');
+    colorControls.className='nexus-war-color-controls';
+    for (const [part,label] of [['receiver','Receiver'],['barrel','Barrel'],['grip','Grip / stock']]) {
+      const input=document.createElement('input');
+      input.type='color';
+      input.value=weaponColorDefaults[part];
+      input.setAttribute('aria-label',label+' color');
+      ui.weaponColors[part]=input;
+      const colorLabel=document.createElement('label');
+      colorLabel.className='nexus-war-color-label';
+      colorLabel.append(label,input);
+      colorControls.appendChild(colorLabel);
+    }
+    colorControls.appendChild(colorButton);
+    ui.form.insertBefore(colorControls,ui.form.querySelector('.nexus-war-equipment-help'));
     ui.weaponSwitch=document.createElement('button');
     ui.weaponSwitch.type='button';
     ui.weaponSwitch.className='nexus-button secondary nexus-war-weapon-switch';

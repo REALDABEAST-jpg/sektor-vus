@@ -79,6 +79,14 @@ function openFriendsArea() { state.activeView = 'friends'; closePrivateDm(); els
 function openPrivateDm(friend) {
   state.activeView = 'friends';
   state.navigationVersion = (state.navigationVersion || 0) + 1;
+  els.appView.classList.add('friends-view'); els.appView.classList.remove('friends-home-view');
+  els.friendsBtn.classList.add('active'); els.friendsList.hidden = false;
+  els.friendRequestsPanel.hidden = false; els.friendsDirectory.hidden = false;
+  els.textChannelsLabel.hidden = true; els.textChannels.hidden = true;
+  els.voiceChannelsLabel.hidden = true; els.voiceChannels.hidden = true;
+  els.voiceMembers.hidden = true; els.voiceControls.hidden = true;
+  els.ownerTools.hidden = true; els.gamesPanel.hidden = true; els.friendHome.hidden = true;
+  els.serverName.textContent = 'Friends & DMs'; els.serverCode.textContent = 'Private conversation';
   state.dmFriend = friend; state.channel = ''; if (state.unsubMessages) state.unsubMessages(); if (state.dmRef && state.dmHandler) state.dmRef.off('child_added', state.dmHandler); state.dmRef = null; state.dmHandler = null;
   els.channelHash.textContent = '@'; els.channelName.textContent = friend.username; els.channelTopic.textContent = 'Private messages'; els.channelPermission.textContent = 'DM'; els.announcement.hidden = true; els.ownerComposer.hidden = true; els.messageInput.placeholder = 'Message @' + friend.username; renderFriendsArea(); selectPrivateMessages();
 }
