@@ -348,6 +348,14 @@
     return session && world ? world.users.find(user => user.username === session.username) || null : null;
   }
 
+  function todayKey() {
+    return new Date().toISOString().slice(0,10);
+  }
+
+  function hasWheelClaim(user, today = todayKey()) {
+    return user.lastWheelDate === today || world.wheelClaims[user.username] === today;
+  }
+
   function inventoryFor(user) {
     if (!Array.isArray(user.inventory)) user.inventory = [];
     user.inventory=user.inventory.filter(item=>item&&typeof item==='object'&&!Array.isArray(item));
@@ -990,9 +998,9 @@
       ? '<section class="nexus-card"><h2>Your wallet</h2><div class="nexus-user"><div><strong>' + escapeHtml(user.username) +
         '</strong><small>' + currency(user.balance) + '</small></div><div class="nexus-form-actions">' +
         (inventoryPage ? '' : '<button class="nexus-button" data-action="spin" ' +
-          (user.lastWheelDate === new Date().toISOString().slice(0,10) ? 'disabled' : '') + '>Spin daily wheel</button>') +
+          (hasWheelClaim(user) ? 'disabled' : '') + '>Spin daily wheel</button>') +
         '<button class="nexus-button secondary" data-action="logout">Log out</button></div></div></section>'
-      : '<section class="nexus-card"><h2>Nexus account</h2><form class="nexus-form" data-form="auth"><input name="username" maxlength="20" placeholder="Username" autocomplete="username" required><input name="password" type="password" maxlength="32" placeholder="Password" autocomplete="current-password" required><div class="nexus-form-actions"><button class="nexus-button" name="mode" value="signup">Create account</button><button class="nexus-button secondary" name="mode" value="login">Log in</button></div></form></section>';
+      : '<section class="nexus-card"><h2>Nexus account</h2><form class="nexus-form" data-form="auth"><input name="username" maxlength="20" placeholder="Username" autocomplete="username" required><input name="password" type="password" maxlength="32" placeholder="Password" autocomplete="current-password" required><div class="nexus-form-actions"><button class="nexus-button secondary" name="mode" value="login">Log in</button><button class="nexus-button" name="mode" value="signup">Create account</button></div></form></section>';
     if (inventoryPage) {
       content.innerHTML = '<section class="nexus-welcome"><span>SEKTOR · NEXUS INVENTORY</span><h1>Your inventory.</h1><p>Manage your items, create artwork, import audio, and start auctions.</p></section>' +
         auth + (user ? renderInventory(user) : '');
@@ -1012,13 +1020,13 @@
     const walletContent = user
       ? '<section class="nexus-card"><h2>Your wallet</h2><div class="nexus-user"><div><strong>' + escapeHtml(user.username) +
         '</strong><small>' + currency(user.balance) + '</small></div><div class="nexus-form-actions"><button class="nexus-button" data-action="spin" ' +
-        (user.lastWheelDate === new Date().toISOString().slice(0,10) ? 'disabled' : '') + '>Spin daily wheel</button><button class="nexus-button secondary" data-action="logout">Log out</button></div></div></section>'
+        (hasWheelClaim(user) ? 'disabled' : '') + '>Spin daily wheel</button><button class="nexus-button secondary" data-action="logout">Log out</button></div></div></section>'
       : '';
     const walletAuth = user ? walletContent + inventoryLink : auth;
     const wheel = user
       ? '<section class="nexus-card"><h2>Daily reward wheel</h2><p class="nexus-wheel-help">Spin once each day to win Sektorium.</p><div class="nexus-wheel-wrap"><div class="nexus-wheel-pointer" aria-hidden="true"></div><div class="nexus-wheel" data-nexus-wheel><span class="nexus-wheel-label">25</span><span class="nexus-wheel-label">40</span><span class="nexus-wheel-label">60</span><span class="nexus-wheel-label">75</span><span class="nexus-wheel-label">100</span><span class="nexus-wheel-label">125</span><span class="nexus-wheel-label">150</span><span class="nexus-wheel-label">200</span></div></div><button class="nexus-button nexus-spin-button" data-action="spin" ' +
-        (user.lastWheelDate === new Date().toISOString().slice(0,10) ? 'disabled' : '') + '>' +
-        (user.lastWheelDate === new Date().toISOString().slice(0,10) ? 'Already spun today' : 'Spin the wheel') +
+        (hasWheelClaim(user) ? 'disabled' : '') + '>' +
+        (hasWheelClaim(user) ? 'Already spun today' : 'Spin the wheel') +
         '</button></section>'
       : '';
     const activeAuctions = world.auctions.filter(item => isAuctionActive(item, Date.now()));
@@ -1113,7 +1121,7 @@
       if (form.dataset.form === 'auth') {
         const username = String(formData.get('username') || '').trim().replace(/[^a-zA-Z0-9_]/g, '').slice(0,20);
         const password = String(formData.get('password') || '');
-        const mode = event.submitter&&event.submitter.value||'signup';
+        const mode = event.submitter&&event.submitter.value||formData.get('mode')||'login';
         if (username.length < 3 || password.length < 4) throw new Error('Use a 3+ character username and 4+ character password.');
         const user = world.users.find(entry => entry.username.toLowerCase() === username.toLowerCase());
         if (mode === 'signup') {
@@ -1427,8 +1435,8 @@
       } else if (action === 'spin') {
         if (!user) throw new Error('Create a Nexus account first.');
         if (wheelSpinning) return;
-        const today = new Date().toISOString().slice(0,10);
-        if (user.lastWheelDate === today) throw new Error('You already spun the wheel today.');
+        const today = todayKey();
+        if (hasWheelClaim(user, today)) throw new Error('You already spun the wheel today.');
         const rewards = [25,40,60,75,100,125,150,200];
         const rewardIndex = Math.floor(Math.random() * rewards.length);
         const reward = rewards[rewardIndex];
@@ -1437,14 +1445,18 @@
         wheelSpinning = true;
         button.disabled = true;
         button.textContent = 'Spinning…';
-        wheelRotation += 5 * 360 + (360 - (rewardIndex * 45 + 22.5));
-        wheel.style.transform = 'rotate(' + wheelRotation + 'deg)';
-        await new Promise(resolve => setTimeout(resolve, 4300));
-        user.lastWheelDate = today;
-        user.balance = Number(user.balance || 0) + reward;
-        world.chat.push({user:'Wheel',text:'You won ' + reward + ' Sektorium.'});
-        await persist('Daily wheel reward: +' + reward + ' Sektorium.');
-        wheelSpinning = false;
+        try {
+          wheelRotation += 5 * 360 + (360 - (rewardIndex * 45 + 22.5));
+          wheel.style.transform = 'rotate(' + wheelRotation + 'deg)';
+          await new Promise(resolve => setTimeout(resolve, 4300));
+          user.lastWheelDate = today;
+          world.wheelClaims[user.username] = today;
+          user.balance = Number(user.balance || 0) + reward;
+          world.chat.push({user:'Wheel',text:'You won ' + reward + ' Sektorium.'});
+          await persist('Daily wheel reward: +' + reward + ' Sektorium.');
+        } finally {
+          wheelSpinning = false;
+        }
       } else if (action === 'edit-inventory') {
         if (!user) throw new Error('Sign in to manage your inventory.');
         const item = inventoryFor(user).find(entry => entry.id === button.dataset.id);
